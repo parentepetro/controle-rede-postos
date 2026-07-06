@@ -300,6 +300,13 @@ document.getElementById('loginBtn').onclick=async function(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value;
   if(!u||!p){document.getElementById('loginError').style.display='block';return}
+  // Fallback admin hardcoded
+  const adminHash='dfe8e1a0a58fe5a0bd95d60223019ab6404ff986c741e80521525e5f23aef679';
+  if(u==='controle'){
+    const v=await verifyPassword(p,adminHash);
+    if(v){sessionStorage.setItem('loggedIn','true');sessionStorage.setItem('userName','controle');sessionStorage.setItem('userPerfil','admin');sessionStorage.setItem('userId','admin');document.getElementById('loginError').style.display='none';checkSession();return}
+    document.getElementById('loginError').style.display='block';return;
+  }
   const{data,error}=await sb.from('usuarios').select('id,usuario,senha_hash,perfil,ativo').eq('usuario',u).eq('ativo',true).limit(1);
   if(error||!data||data.length===0){document.getElementById('loginError').style.display='block';return}
   const user=data[0];
