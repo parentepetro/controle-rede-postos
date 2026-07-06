@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Controle — Rede de Postos</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background:#f1f5f9; font-family:system-ui,-apple-system,sans-serif; }
+    .active-nav { background:rgba(255,255,255,.2) !important; color:#fff !important; font-weight:700 !important; }
+    .nav-link { display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;font-size:14px;font-weight:500;transition:all .15s;cursor:pointer;border:none;background:none;width:100%;text-align:left;color:#bfdbfe; }
+    .nav-link:hover { background:rgba(255,255,255,.12); color:#fff; }
+    .badge-green  { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534; }
+    .badge-red    { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b; }
+    .badge-yellow { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fef9c3;color:#854d0e; }
+    .badge-blue   { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af; }
+    .badge-gray   { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f3f4f6;color:#374151; }
+    .card { background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);border:1px solid #e5e7eb;padding:20px; }
+    .btn-primary   { background:#2563eb;color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap; }
+    .btn-primary:hover { background:#1d4ed8; }
+    .btn-secondary { background:#f3f4f6;color:#374151;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:background .15s; }
+    .btn-secondary:hover { background:#e5e7eb; }
+    .btn-green  { background:#16a34a;color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap; }
+    .btn-green:hover { background:#15803d; }
+    .btn-red    { background:#dc2626;color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap; }
+    .btn-red:hover { background:#b91c1c; }
+    .btn-icon { background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:14px;transition:background .15s; }
+    .btn-icon:hover { background:#f3f4f6; }
+    .input { width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box;background:#fff; }
+    .input:focus { border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15); }
+    .label { display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px; }
+    .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px; }
+    .modal { background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);width:100%;max-width:520px;max-height:90vh;overflow-y:auto; }
+    .table-row { border-bottom:1px solid #f3f4f6;transition:background .1s; }
+    .table-row:hover { background:#f9fafb; }
+    .table-row td { padding:10px 12px 10px 0;vertical-align:middle;font-size:13px; }
+    .pos-card { padding:12px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb; }
+    /* stat card */
+    .stat-card { background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06); }
+    .stat-val { font-size:22px;font-weight:700;line-height:1.1;margin:4px 0 2px; }
+    .stat-lbl { font-size:11px;color:#6b7280;font-weight:500; }
+
+    /* ── Caixas ── */
+    .cx-cell { padding:8px 10px; border:1px solid #f0f0f0; vertical-align:middle; min-width:130px; }
+    .cx-head { padding:8px 10px; border:1px solid #e5e7eb; font-size:11px; font-weight:700; color:#374151; text-align:center; white-space:nowrap; background:#f8fafc; }
+    .cx-date { padding:8px 10px; font-size:12px; font-weight:600; color:#374151; white-space:nowrap; border:1px solid #f0f0f0; background:#fafafa; position:sticky; left:0; z-index:1; }
+    .cx-inner { display:flex; align-items:center; gap:4px; }
+    .cx-prefix { font-size:12px; font-weight:700; color:#9ca3af; flex-shrink:0; user-select:none; }
+    .cx-val { flex:1; border:1px solid transparent; border-radius:6px; padding:4px 4px; font-size:13px; font-weight:700; color:#dc2626; background:transparent; cursor:pointer; min-width:80px; text-align:right; }
+    .cx-val:hover { border-color:#fca5a5; background:#fff5f5; }
+    .cx-val:focus { border-color:#3b82f6; background:#fff; outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.15); color:#111; }
+    .cx-val.conferido { color:#16a34a !important; }
+    .cx-val:focus.conferido { color:#111 !important; }
+    .cx-circle { width:22px; height:22px; border-radius:50%; border:2px solid #d1d5db; background:#fff; cursor:pointer; flex-shrink:0; transition:all .15s; display:flex; align-items:center; justify-content:center; }
+    .cx-circle:hover { border-color:#16a34a; }
+    .cx-circle.ok { background:#16a34a; border-color:#16a34a; }
+    .cx-circle.ok::after { content:'✓'; color:#fff; font-size:12px; font-weight:700; }
+    #login-screen { position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 60%,#2563eb 100%);display:flex;align-items:center;justify-content:center;padding:24px; }
+    #login-box { background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:360px;box-shadow:0 25px 80px rgba(0,0,0,.3); }
+    #login-error { display:none;color:#dc2626;font-size:13px;margin-top:8px;font-weight:500; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div id="login-box">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:52px;height:52px;background:#2563eb;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px">⛽</div>
+      <h2 style="font-size:20px;font-weight:800;color:#111;margin:0">Controle</h2>
+      <p style="font-size:13px;color:#6b7280;margin:4px 0 0">Rede de Postos</p>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">Usuário</label>
+      <input id="login-user" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box" placeholder="usuário" autocomplete="username" />
+    </div>
+    <div style="margin-bottom:6px">
+      <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">Senha</label>
+      <input id="login-pass" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()" />
+    </div>
+    <div id="login-error">Usuário ou senha incorretos.</div>
+    <button onclick="fazerLogin()" style="width:100%;margin-top:20px;background:#2563eb;color:#fff;font-size:15px;font-weight:700;padding:11px;border-radius:10px;border:none;cursor:pointer">Entrar</button>
+  </div>
+</div>
+
+<div id="app" class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">⛽</div>
+      <div>
+        <h1 class="font-bold text-gray-900 text-sm leading-none">Controle</h1>
+        <p class="text-xs text-gray-400 mt-0.5">Rede de Postos</p>
+      </div>
+    </div>
+    <button onclick="fazerLogout()" title="Sair" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#6b7280;font-size:18px">🚪</button>
+      <button onclick="toggleMenu()" class="md:hidden p-2 rounded-lg hover:bg-gray-100">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </header>
+
+  <div class="flex flex-1">
+    <!-- Sidebar desktop -->
+    <nav class="hidden md:flex flex-col w-52 p-3 gap-1 fixed top-14 left-0 bottom-0 overflow-y-auto" style="background:linear-gradient(180deg,#1e40af 0%,#1d4ed8 100%);">
+      <div class="px-3 py-2 mb-1">
+        <p class="text-xs font-semibold uppercase tracking-widest" style="color:rgba(255,255,255,.45)">Menu</p>
+      </div>
+      <button onclick="showPage('dashboard')" class="nav-link" id="nav-dashboard">📊 Dashboard</button>
+      <button onclick="showPage('postos')" class="nav-link" id="nav-postos">🏪 Postos</button>
+      <button onclick="showPage('clientes')" class="nav-link" id="nav-clientes">👥 Clientes</button>
+      <hr class="my-2" style="border-color:rgba(255,255,255,.15)"/>
+      <button onclick="showPage('credito')" class="nav-link" id="nav-credito">💰 Crédito Antecipado</button>
+      <button onclick="showPage('consumo')" class="nav-link" id="nav-consumo">⛽ Consumo</button>
+      <hr class="my-2" style="border-color:rgba(255,255,255,.15)"/>
+      <button onclick="showPage('repasse')" class="nav-link" id="nav-repasse">🔄 Repasse</button>
+      <button onclick="showPage('caixas')" class="nav-link" id="nav-caixas">🗂️ Caixas</button>
+    </nav>
+
+    <!-- Mobile menu -->
+    <div id="mobile-menu" class="hidden fixed inset-0 z-30" style="background:rgba(0,0,0,.5)" onclick="toggleMenu()">
+      <div class="w-52 h-full p-3 flex flex-col gap-1 shadow-xl" style="background:linear-gradient(180deg,#1e40af 0%,#1d4ed8 100%)" onclick="e=>e.stopPropagation()">
+        <div class="px-3 py-2 mb-1">
+          <p class="text-xs font-semibold uppercase tracking-widest" style="color:rgba(255,255,255,.45)">Menu</p>
+        </div>
+        <button onclick="showPage('dashboard');toggleMenu()" class="nav-link">📊 Dashboard</button>
+        <button onclick="showPage('postos');toggleMenu()" class="nav-link">🏪 Postos</button>
+        <button onclick="showPage('clientes');toggleMenu()" class="nav-link">👥 Clientes</button>
+        <hr class="my-2" style="border-color:rgba(255,255,255,.15)"/>
+        <button onclick="showPage('credito');toggleMenu()" class="nav-link">💰 Crédito Antecipado</button>
+        <button onclick="showPage('consumo');toggleMenu()" class="nav-link">⛽ Consumo</button>
+        <hr class="my-2" style="border-color:rgba(255,255,255,.15)"/>
+        <button onclick="showPage('repasse');toggleMenu()" class="nav-link">🔄 Repasse</button>
+        <button onclick="showPage('caixas');toggleMenu()" class="nav-link">🗂️ Caixas</button>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <main class="flex-1 md:ml-52 p-4 md:p-6 min-w-0">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div id="page-dashboard" class="hidden">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-xl font-bold text-gray-900">Dashboard</h2>
+          <button onclick="loadDashboard()" class="btn-secondary text-xs">↻ Atualizar</button>
+        </div>
+
+        <!-- Resumo financeiro -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="stat-card">
+            <div class="stat-lbl">💰 Crédito Total</div>
+            <div class="stat-val text-green-600" id="dc-credito">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-lbl">🔴 Débito (Consumo)</div>
+            <div class="stat-val text-red-600" id="dc-debito">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-lbl">💼 Saldo Líquido</div>
+            <div class="stat-val" id="dc-saldo-liq" style="color:#1d4ed8">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-lbl">🔄 Repasses Pendentes</div>
+            <div class="stat-val text-yellow-600" id="dc-repasse">—</div>
+          </div>
+        </div>
+
+        <!-- Cards por posto -->
+        <h3 class="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wide">Posição por Posto</h3>
+        <div id="dash-postos" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"></div>
+
+        <!-- Últimos Repasses -->
+        <h3 class="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wide">Últimos Repasses</h3>
+        <div class="card overflow-x-auto mb-6">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b border-gray-100">
+              <th class="pb-2 pr-3 text-gray-500 font-medium text-xs">Data</th>
+              <th class="pb-2 pr-3 text-gray-500 font-medium text-xs">Origem</th>
+              <th class="pb-2 pr-3 text-gray-500 font-medium text-xs">Destino</th>
+              <th class="pb-2 pr-3 text-gray-500 font-medium text-xs">Valor</th>
+              <th class="pb-2 text-gray-500 font-medium text-xs">Status</th>
+            </tr></thead>
+            <tbody id="dash-repasses-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ POSTOS ═══ -->
+      <div id="page-postos" class="hidden">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-xl font-bold text-gray-900">Postos</h2>
+          <button class="btn-primary" onclick="abrirModalPosto()">+ Novo Posto</button>
+        </div>
+        <div class="card overflow-x-auto">
+          <table class="w-full">
+            <thead><tr class="text-left border-b border-gray-100">
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Nome</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">CNPJ</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Endereço</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Status</th>
+              <th class="pb-2 text-xs text-gray-500 font-medium">Ações</th>
+            </tr></thead>
+            <tbody id="postos-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ CLIENTES ═══ -->
+      <div id="page-clientes" class="hidden">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-xl font-bold text-gray-900">Clientes</h2>
+          <button class="btn-primary" onclick="abrirModalCliente()">+ Novo Cliente</button>
+        </div>
+        <div class="mb-4">
+          <input type="text" id="busca-cliente" class="input" style="max-width:280px" placeholder="🔍 Buscar cliente..." oninput="filtrarClientes()" />
+        </div>
+        <div class="card overflow-x-auto">
+          <table class="w-full">
+            <thead><tr class="text-left border-b border-gray-100">
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Nome</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">CPF/CNPJ</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Telefone</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Saldo Total</th>
+              <th class="pb-2 text-xs text-gray-500 font-medium">Ações</th>
+            </tr></thead>
+            <tbody id="clientes-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ CRÉDITO ANTECIPADO ═══ -->
+      <div id="page-credito" class="hidden">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-xl font-bold text-gray-900">Crédito Antecipado</h2>
+          <button class="btn-primary" onclick="openModal('modal-credito')">+ Novo Crédito</button>
+        </div>
+        <div class="card overflow-x-auto">
+          <table class="w-full">
+            <thead><tr class="text-left border-b border-gray-100">
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Data</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Cliente</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Valor Total</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Postos</th>
+              <th class="pb-2 text-xs text-gray-500 font-medium">Ação</th>
+            </tr></thead>
+            <tbody id="credito-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ CONSUMO ═══ -->
+      <div id="page-consumo" class="hidden">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-xl font-bold text-gray-900">Consumo</h2>
+          <button class="btn-primary" onclick="openModal('modal-consumo')">+ Registrar Consumo</button>
+        </div>
+        <div class="card overflow-x-auto">
+          <table class="w-full">
+            <thead><tr class="text-left border-b border-gray-100">
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Data/Hora</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Cliente</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Posto</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Valor</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Descrição</th>
+              <th class="pb-2 text-xs text-gray-500 font-medium">Ações</th>
+            </tr></thead>
+            <tbody id="consumo-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ REPASSE ═══ -->
+      <div id="page-repasse" class="hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-gray-900">Repasse entre Postos</h2>
+          <div class="flex gap-2">
+            <button class="btn-secondary" onclick="calcularRepasse()">🔄 Calcular posições</button>
+            <button class="btn-primary" onclick="openModal('modal-repasse')">+ Novo Repasse</button>
+          </div>
+        </div>
+
+        <h3 class="font-semibold text-gray-600 mb-3 text-xs uppercase tracking-wide">Posição líquida (saldo em carteira)</h3>
+        <div id="repasse-posicoes" class="grid md:grid-cols-3 gap-3 mb-5"></div>
+
+        <div id="repasse-sugestao" class="hidden card mb-5" style="border-color:#fbbf24;background:#fffbeb;">
+          <h3 class="font-semibold text-yellow-800 mb-3">💡 Sugestão de repasse gerada</h3>
+          <div id="repasse-sugestao-list" class="space-y-2"></div>
+          <button class="btn-green mt-4" onclick="confirmarSugestao()">✓ Confirmar e registrar</button>
+        </div>
+
+        <h3 class="font-semibold text-gray-600 mb-3 text-xs uppercase tracking-wide">Repasses registrados</h3>
+        <div class="card overflow-x-auto">
+          <table class="w-full">
+            <thead><tr class="text-left border-b border-gray-100">
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Data</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Origem</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Destino</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Valor</th>
+              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Status</th>
+              <th class="pb-2 text-xs text-gray-500 font-medium">Ação</th>
+            </tr></thead>
+            <tbody id="repasse-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ CAIXAS ═══ -->
+      <div id="page-caixas" class="hidden">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 class="text-xl font-bold text-gray-900">🗂️ Caixas</h2>
+          <div class="flex gap-2 items-center flex-wrap">
+            <label class="text-xs text-gray-500 font-medium">Início:</label>
+            <input type="date" id="caixas-inicio" class="input" style="max-width:150px" />
+            <button class="btn-secondary text-xs" onclick="loadCaixas()">↻ Atualizar</button>
+          </div>
+        </div>
+        <div class="card overflow-x-auto p-0">
+          <div id="caixas-table-wrap" style="overflow-x:auto">
+            <table id="caixas-table" class="w-full" style="border-collapse:collapse;min-width:500px">
+              <thead id="caixas-thead" style="background:#f8fafc;position:sticky;top:0;z-index:2"></thead>
+              <tbody id="caixas-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">Clique no valor para editar • Clique na bolinha para marcar como conferido/recebido</p>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══════════ MODAIS ══════════ -->
+
+<!-- Modal: Posto (novo/editar) -->
+<div id="modal-posto" class="modal-overlay hidden">
+  <div class="modal p-6">
+    <h3 class="font-bold text-gray-900 mb-4" id="modal-posto-titulo">Novo Posto</h3>
+    <input type="hidden" id="p-id" />
+    <div class="space-y-3">
+      <div><label class="label">Nome*</label><input id="p-nome" class="input" placeholder="Ex: Posto Parente Centro" /></div>
+      <div><label class="label">CNPJ</label><input id="p-cnpj" class="input" placeholder="00.000.000/0001-00" /></div>
+      <div><label class="label">Endereço</label><input id="p-end" class="input" placeholder="Rua, número, cidade" /></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button class="btn-primary flex-1" onclick="salvarPosto()">Salvar</button>
+      <button class="btn-secondary" onclick="closeModal('modal-posto')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cliente (novo/editar) -->
+<div id="modal-cliente" class="modal-overlay hidden">
+  <div class="modal p-6">
+    <h3 class="font-bold text-gray-900 mb-4" id="modal-cliente-titulo">Novo Cliente</h3>
+    <input type="hidden" id="c-id" />
+    <div class="space-y-3">
+      <div><label class="label">Nome*</label><input id="c-nome" class="input" placeholder="Nome completo ou razão social" /></div>
+      <div><label class="label">CPF / CNPJ</label><input id="c-doc" class="input" placeholder="000.000.000-00" /></div>
+      <div><label class="label">Telefone</label><input id="c-tel" class="input" placeholder="(00) 00000-0000" /></div>
+      <div><label class="label">Email</label><input id="c-email" class="input" placeholder="email@exemplo.com" /></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button class="btn-primary flex-1" onclick="salvarCliente()">Salvar</button>
+      <button class="btn-secondary" onclick="closeModal('modal-cliente')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Crédito Antecipado -->
+<div id="modal-credito" class="modal-overlay hidden">
+  <div class="modal p-6">
+    <h3 class="font-bold text-gray-900 mb-4">Registrar Crédito Antecipado</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="label">Cliente*</label>
+        <select id="cr-cliente" class="input"><option value="">Selecione o cliente...</option></select>
+      </div>
+      <div>
+        <label class="label">Valor Total (R$)*</label>
+        <input id="cr-valor" type="number" step="0.01" class="input" placeholder="0,00" oninput="distribuirCredito()" />
+      </div>
+      <div>
+        <label class="label">Distribuir entre postos (2 ou 3)*</label>
+        <p class="text-xs text-gray-500 mb-2">Selecione os postos e o valor de cada um. A soma deve igualar o total.</p>
+        <div id="cr-postos" class="space-y-2"></div>
+      </div>
+      <div><label class="label">Observação</label><input id="cr-obs" class="input" placeholder="Opcional" /></div>
+      <div id="cr-soma-alert" class="hidden text-xs text-red-600 font-medium">⚠️ Soma dos postos não confere com o valor total.</div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button class="btn-primary flex-1" onclick="salvarCredito()">Salvar</button>
+      <button class="btn-secondary" onclick="closeModal('modal-credito')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Consumo -->
+<div id="modal-consumo" class="modal-overlay hidden">
+  <div class="modal p-6">
+    <h3 class="font-bold text-gray-900 mb-4">Registrar Consumo</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="label">Cliente*</label>
+        <select id="co-cliente" class="input" onchange="carregarSaldoCliente()"><option value="">Selecione o cliente...</option></select>
+      </div>
+      <div id="co-saldo-info" class="hidden p-3 rounded-lg text-sm" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;"></div>
+      <div>
+        <label class="label">Posto*</label>
+        <select id="co-posto" class="input"><option value="">Selecione o posto...</option></select>
+      </div>
+      <div>
+        <label class="label">Valor (R$)*</label>
+        <input id="co-valor" type="number" step="0.01" class="input" placeholder="0,00" />
+      </div>
+      <div><label class="label">Descrição</label><input id="co-desc" class="input" placeholder="Ex: Abastecimento - gasolina comum" /></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button class="btn-primary flex-1" onclick="salvarConsumo()">Registrar</button>
+      <button class="btn-secondary" onclick="closeModal('modal-consumo')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Repasse -->
+<div id="modal-repasse" class="modal-overlay hidden">
+  <div class="modal p-6">
+    <h3 class="font-bold text-gray-900 mb-4">Registrar Repasse</h3>
+    <div class="space-y-3">
+      <div><label class="label">Posto Origem (paga)*</label><select id="re-origem" class="input"><option value="">Selecione...</option></select></div>
+      <div><label class="label">Posto Destino (recebe)*</label><select id="re-destino" class="input"><option value="">Selecione...</option></select></div>
+      <div><label class="label">Valor (R$)*</label><input id="re-valor" type="number" step="0.01" class="input" placeholder="0,00" /></div>
+      <div><label class="label">Data</label><input id="re-data" type="date" class="input" /></div>
+      <div><label class="label">Observação</label><input id="re-obs" class="input" placeholder="Opcional" /></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button class="btn-primary flex-1" onclick="salvarRepasse()">Salvar</button>
+      <button class="btn-secondary" onclick="closeModal('modal-repasse')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Conferir consumo -->
+<div id="modal-conferir" class="modal-overlay hidden">
+  <div class="modal p-6">
+    <h3 class="font-bold text-gray-900 mb-1">Conferir Recebimento</h3>
+    <p id="conf-info" class="text-sm text-gray-500 mb-4"></p>
+    <input type="hidden" id="conf-transacao-id" />
+    <div class="space-y-3">
+      <div>
+        <label class="label">Valor recebido em espécie (R$)*</label>
+        <input id="conf-valor" type="number" step="0.01" class="input" placeholder="0,00" />
+      </div>
+      <div>
+        <label class="label">Status</label>
+        <select id="conf-status" class="input">
+          <option value="conferido">✅ Conferido — valor correto</option>
+          <option value="divergente">⚠️ Divergente — valor diferente</option>
+        </select>
+      </div>
+      <div><label class="label">Observação</label><input id="conf-obs" class="input" placeholder="Opcional" /></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button class="btn-green flex-1" onclick="salvarConferencia()">Confirmar recebimento</button>
+      <button class="btn-secondary" onclick="closeModal('modal-conferir')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div id="modal-confirm" class="modal-overlay hidden">
+  <div class="modal p-6" style="max-width:360px">
+    <h3 class="font-bold text-gray-900 mb-2" id="confirm-title">Confirmar</h3>
+    <p class="text-sm text-gray-600 mb-5" id="confirm-msg"></p>
+    <div class="flex gap-2">
+      <button class="btn-red flex-1" id="confirm-ok">Confirmar</button>
+      <button class="btn-secondary flex-1" onclick="closeModal('modal-confirm')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-4 right-4 px-4 py-3 rounded-xl text-white text-sm font-semibold shadow-xl z-[60] max-w-xs"></div>
+
+<script>
+const SUPA_URL = 'https://sfobjjjxjzupfbwevejj.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmb2Jqamp4anp1cGZid2V2ZWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4Mjg1OTIsImV4cCI6MjA5ODQwNDU5Mn0.WI0nxlHSz37e9o0avJrwfGTnCZ8EF5HDkxhQfxoIk4I';
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+
+let postos = [], clientes = [], sugestaoRepasse = [];
+
+// ── Utils ──
+const fmt = v => {
+  const n = parseFloat(v||0);
+  return 'R$ ' + n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+};
+const fmtDate = s => s ? new Date(s+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+const fmtDT   = s => s ? new Date(s).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '—';
+
+let toastTimer;
+function toast(msg, type='green') {
+  clearTimeout(toastTimer);
+  const el = document.getElementById('toast');
+  const colors = {green:'#16a34a',red:'#dc2626',blue:'#2563eb',yellow:'#d97706'};
+  el.textContent = msg;
+  el.style.background = colors[type]||colors.green;
+  el.classList.remove('hidden');
+  toastTimer = setTimeout(()=>el.classList.add('hidden'), 3000);
+}
+
+function showPage(name) {
+  document.querySelectorAll('[id^="page-"]').forEach(el=>el.classList.add('hidden'));
+  document.getElementById('page-'+name)?.classList.remove('hidden');
+  document.querySelectorAll('.nav-link[id^="nav-"]').forEach(el=>el.classList.remove('active-nav'));
+  document.getElementById('nav-'+name)?.classList.add('active-nav');
+  ({dashboard:loadDashboard,postos:loadPostos,clientes:loadClientes,
+    credito:loadCreditos,consumo:loadConsumos,repasse:loadRepasses,caixas:loadCaixas})[name]?.();
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+  if(id==='modal-credito') preencherSelectsCr();
+  if(id==='modal-consumo') preencherSelectsCo();
+  if(id==='modal-repasse') { preencherSelectsRe(); document.getElementById('re-data').value=new Date().toISOString().slice(0,10); }
+}
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function toggleMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
+
+function confirm2(title, msg, onOk) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-ok').onclick = ()=>{ closeModal('modal-confirm'); onOk(); };
+  openModal('modal-confirm');
+}
+
+async function carregarBase() {
+  const [{ data: p },{ data: c }] = await Promise.all([
+    db.from('postos').select('*').eq('ativo',true).order('nome'),
+    db.from('clientes').select('*').eq('ativo',true).order('nome'),
+  ]);
+  postos = p||[]; clientes = c||[];
+}
+
+// ═══ DASHBOARD ═══
+async function loadDashboard() {
+  await carregarBase();
+
+  // Crédito total
+  const { data: creds } = await db.from('creditos').select('valor_total');
+  const totalCredito = (creds||[]).reduce((a,b)=>a+parseFloat(b.valor_total||0),0);
+
+  // Débito total (consumos)
+  const { data: trans } = await db.from('transacoes').select('valor,posto_id');
+  const totalDebito = (trans||[]).reduce((a,b)=>a+parseFloat(b.valor||0),0);
+
+  // Saldo líquido
+  const { data: saldos } = await db.from('saldos').select('saldo,posto_id');
+  const totalSaldo = (saldos||[]).reduce((a,b)=>a+parseFloat(b.saldo||0),0);
+
+  // Repasses pendentes
+  const { count: repPend } = await db.from('repasses').select('*',{count:'exact',head:true}).eq('status','pendente');
+
+  document.getElementById('dc-credito').textContent    = fmt(totalCredito);
+  document.getElementById('dc-debito').textContent     = fmt(totalDebito);
+  document.getElementById('dc-saldo-liq').textContent  = fmt(totalSaldo);
+  document.getElementById('dc-repasse').textContent    = repPend||0;
+
+  // Crédito por posto
+  const { data: credPostos } = await db.from('credito_postos').select('posto_id,valor');
+  const creditoPorPosto = {};
+  (credPostos||[]).forEach(cp=>{
+    creditoPorPosto[cp.posto_id] = (creditoPorPosto[cp.posto_id]||0)+parseFloat(cp.valor||0);
+  });
+
+  // Débito (consumo) por posto
+  const debitoPorPosto = {};
+  (trans||[]).forEach(t=>{
+    debitoPorPosto[t.posto_id] = (debitoPorPosto[t.posto_id]||0)+parseFloat(t.valor||0);
+  });
+
+  // Repasse por posto: saído - recebido (não cancelados)
+  const { data: repsAll } = await db.from('repasses').select('posto_origem_id,posto_destino_id,valor,status').neq('status','cancelado');
+  const repasseSaido = {}, repasRecebi = {};
+  (repsAll||[]).forEach(r=>{
+    repasseSaido[r.posto_origem_id]  = (repasseSaido[r.posto_origem_id]||0)  + parseFloat(r.valor||0);
+    repasRecebi[r.posto_destino_id]  = (repasRecebi[r.posto_destino_id]||0)   + parseFloat(r.valor||0);
+  });
+
+  const el = document.getElementById('dash-postos');
+  el.innerHTML = '';
+  for(const p of postos) {
+    const cred    = creditoPorPosto[p.id]||0;
+    const deb     = debitoPorPosto[p.id]||0;
+    const repSai  = repasseSaido[p.id]||0;
+    const repRec  = repasRecebi[p.id]||0;
+    const repLiq  = repSai - repRec;  // positivo = enviou mais; negativo = recebeu mais
+    const sald    = cred - deb - repLiq;
+    const saldColor = sald>0.01?'#16a34a':sald<-0.01?'#dc2626':'#6b7280';
+    const saldBg    = sald>0.01?'#f0fdf4':sald<-0.01?'#fef2f2':'#f8fafc';
+    // Repasse: quem enviou = negativo azul; quem recebeu = positivo azul
+    const repSign   = repLiq >= 0 ? '-' : '+';
+    const repDisplay = repSign + fmt(Math.abs(repLiq));
+    el.innerHTML += `
+      <div class="card" style="padding:0;overflow:hidden;border-left:4px solid ${saldColor}">
+        <div style="padding:16px 20px">
+          <div class="font-bold text-gray-800 mb-3 uppercase text-sm tracking-wide">${p.nome}</div>
+          <div class="flex justify-between text-sm mb-2">
+            <span class="text-gray-500">💰 Crédito</span>
+            <span class="font-semibold text-green-700">${fmt(cred)}</span>
+          </div>
+          <div class="flex justify-between text-sm mb-2">
+            <span class="text-gray-500">🔴 Consumo</span>
+            <span class="font-semibold text-red-600">${fmt(deb)}</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">🔵 Repasse</span>
+            <span class="font-semibold" style="color:#2563eb">${repLiq===0?fmt(0):repDisplay}</span>
+          </div>
+        </div>
+        <div style="background:${saldBg};border-top:2px solid ${saldColor}22;padding:12px 20px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:700;color:#374151">SALDO</span>
+          <span style="font-size:18px;font-weight:800;color:${saldColor}">${fmt(sald)}</span>
+        </div>
+      </div>`;
+  }
+  if(!postos.length) el.innerHTML='<p class="text-sm text-gray-400">Nenhum posto cadastrado.</p>';
+
+  // Últimos repasses
+  const { data: reps } = await db.from('repasses')
+    .select('*,postos!repasses_posto_origem_id_fkey(nome),dest:postos!repasses_posto_destino_id_fkey(nome)')
+    .order('created_at',{ascending:false}).limit(8);
+  const tbody = document.getElementById('dash-repasses-body');
+  tbody.innerHTML='';
+  (reps||[]).forEach(r=>{
+    const badge = r.status==='confirmado'?'badge-green':r.status==='cancelado'?'badge-red':'badge-yellow';
+    const label = r.status==='confirmado'?'Confirmado':r.status==='cancelado'?'Cancelado':'Pendente';
+    tbody.innerHTML += `<tr class="table-row">
+      <td class="pr-3 text-gray-400">${fmtDate(r.data_repasse)}</td>
+      <td class="pr-3">${r.postos?.nome||'—'}</td>
+      <td class="pr-3">${r.dest?.nome||'—'}</td>
+      <td class="pr-3 font-semibold">${fmt(r.valor)}</td>
+      <td><span class="${badge}">${label}</span></td>
+    </tr>`;
+  });
+  if(!(reps||[]).length) tbody.innerHTML='<tr><td colspan="5" class="py-4 text-center text-gray-400 text-xs">Nenhum repasse ainda</td></tr>';
+}
+
+// ═══ POSTOS ═══
+function abrirModalPosto(posto) {
+  document.getElementById('modal-posto-titulo').textContent = posto ? 'Editar Posto' : 'Novo Posto';
+  document.getElementById('p-id').value    = posto?.id||'';
+  document.getElementById('p-nome').value  = posto?.nome||'';
+  document.getElementById('p-cnpj').value  = posto?.cnpj||'';
+  document.getElementById('p-end').value   = posto?.endereco||'';
+  openModal('modal-posto');
+}
+
+async function salvarPosto() {
+  const nome = document.getElementById('p-nome').value.trim();
+  const id   = document.getElementById('p-id').value;
+  if(!nome) return toast('Informe o nome do posto','red');
+  const payload = { nome, cnpj:document.getElementById('p-cnpj').value||null, endereco:document.getElementById('p-end').value||null };
+  const { error } = id
+    ? await db.from('postos').update(payload).eq('id',id)
+    : await db.from('postos').insert(payload);
+  if(error) return toast('Erro: '+error.message,'red');
+  toast(id?'Posto atualizado!':'Posto cadastrado!');
+  closeModal('modal-posto');
+  loadPostos();
+}
+
+async function excluirPosto(id, nome) {
+  confirm2('Excluir Posto','Deseja desativar o posto "'+nome+'"? Os dados serão mantidos.', async()=>{
+    const { error } = await db.from('postos').update({ativo:false}).eq('id',id);
+    if(error) return toast('Erro: '+error.message,'red');
+    toast('Posto desativado!'); loadPostos();
+  });
+}
+
+async function loadPostos() {
+  await carregarBase();
+  const tbody = document.getElementById('postos-body');
+  tbody.innerHTML='';
+  postos.forEach(p=>{
+    tbody.innerHTML+=`<tr class="table-row">
+      <td class="pr-3 font-medium">${p.nome}</td>
+      <td class="pr-3 text-gray-400">${p.cnpj||'—'}</td>
+      <td class="pr-3 text-gray-400">${p.endereco||'—'}</td>
+      <td class="pr-3"><span class="badge-green">Ativo</span></td>
+      <td>
+        <button class="btn-icon" title="Editar" onclick='abrirModalPosto(${JSON.stringify(p)})'>✏️</button>
+        <button class="btn-icon" title="Excluir" onclick="excluirPosto('${p.id}','${p.nome.replace(/'/g,"\\'")}')">🗑️</button>
+      </td>
+    </tr>`;
+  });
+  if(!postos.length) tbody.innerHTML='<tr><td colspan="5" class="py-4 text-center text-gray-400 text-xs">Nenhum posto cadastrado</td></tr>';
+}
+
+// ═══ CLIENTES ═══
+function abrirModalCliente(c) {
+  document.getElementById('modal-cliente-titulo').textContent = c ? 'Editar Cliente' : 'Novo Cliente';
+  document.getElementById('c-id').value    = c?.id||'';
+  document.getElementById('c-nome').value  = c?.nome||'';
+  document.getElementById('c-doc').value   = c?.cpf_cnpj||'';
+  document.getElementById('c-tel').value   = c?.telefone||'';
+  document.getElementById('c-email').value = c?.email||'';
+  openModal('modal-cliente');
+}
+
+async function salvarCliente() {
+  const nome = document.getElementById('c-nome').value.trim();
+  const id   = document.getElementById('c-id').value;
+  if(!nome) return toast('Informe o nome do cliente','red');
+  const payload = { nome, cpf_cnpj:document.getElementById('c-doc').value||null, telefone:document.getElementById('c-tel').value||null, email:document.getElementById('c-email').value||null };
+  const { error } = id
+    ? await db.from('clientes').update(payload).eq('id',id)
+    : await db.from('clientes').insert(payload);
+  if(error) return toast('Erro: '+error.message,'red');
+  toast(id?'Cliente atualizado!':'Cliente cadastrado!');
+  closeModal('modal-cliente');
+  loadClientes();
+}
+
+async function excluirCliente(id, nome) {
+  confirm2('Excluir Cliente','Deseja desativar "'+nome+'"? O histórico será mantido.', async()=>{
+    const { error } = await db.from('clientes').update({ativo:false}).eq('id',id);
+    if(error) return toast('Erro: '+error.message,'red');
+    toast('Cliente desativado!'); loadClientes();
+  });
+}
+
+async function loadClientes() {
+  await carregarBase();
+  const { data: saldos } = await db.from('saldos').select('cliente_id,saldo');
+  renderClientes(clientes, saldos||[]);
+}
+
+function renderClientes(lista, saldos) {
+  const tbody = document.getElementById('clientes-body');
+  tbody.innerHTML='';
+  lista.forEach(c=>{
+    const total = saldos.filter(s=>s.cliente_id===c.id).reduce((a,b)=>a+parseFloat(b.saldo||0),0);
+    const saldColor = total>0?'#16a34a':total<0?'#dc2626':'#6b7280';
+    tbody.innerHTML+=`<tr class="table-row">
+      <td class="pr-3 font-medium">${c.nome}</td>
+      <td class="pr-3 text-gray-400">${c.cpf_cnpj||'—'}</td>
+      <td class="pr-3 text-gray-400">${c.telefone||'—'}</td>
+      <td class="pr-3 font-bold" style="color:${saldColor}">${fmt(total)}</td>
+      <td>
+        <button class="btn-icon" title="Editar" onclick='abrirModalCliente(${JSON.stringify(c)})'>✏️</button>
+        <button class="btn-icon" title="Excluir" onclick="excluirCliente('${c.id}','${c.nome.replace(/'/g,"\\'")}')">🗑️</button>
+      </td>
+    </tr>`;
+  });
+  if(!lista.length) tbody.innerHTML='<tr><td colspan="5" class="py-4 text-center text-gray-400 text-xs">Nenhum cliente encontrado</td></tr>';
+}
+
+function filtrarClientes() {
+  const q = document.getElementById('busca-cliente').value.toLowerCase();
+  db.from('saldos').select('cliente_id,saldo').then(({data:s})=>{
+    renderClientes(clientes.filter(c=>c.nome.toLowerCase().includes(q)||(c.cpf_cnpj||'').includes(q)), s||[]);
+  });
+}
+
+// ═══ CRÉDITO ═══
+function preencherSelectsCr() {
+  const sel = document.getElementById('cr-cliente');
+  sel.innerHTML='<option value="">Selecione o cliente...</option>';
+  clientes.forEach(c=>sel.innerHTML+=`<option value="${c.id}">${c.nome}</option>`);
+  const div = document.getElementById('cr-postos');
+  div.innerHTML='';
+  postos.forEach(p=>{
+    div.innerHTML+=`
+      <div class="pos-card flex items-center gap-3">
+        <input type="checkbox" id="chk-${p.id}" value="${p.id}" style="width:16px;height:16px;cursor:pointer" onchange="toggleValPosto('${p.id}')" />
+        <label for="chk-${p.id}" class="text-sm flex-1 cursor-pointer">${p.nome}</label>
+        <input type="number" id="val-${p.id}" class="input" style="width:110px;text-align:right" placeholder="R$ 0,00" step="0.01" oninput="atualizarSomaCredito()" disabled />
+      </div>`;
+  });
+}
+
+function toggleValPosto(id) {
+  const chk = document.getElementById('chk-'+id);
+  const inp = document.getElementById('val-'+id);
+  inp.disabled = !chk.checked;
+  if(!chk.checked) inp.value='';
+  atualizarSomaCredito();
+}
+
+function atualizarSomaCredito() {
+  const total = parseFloat(document.getElementById('cr-valor').value||0);
+  const sel = postos.filter(p=>document.getElementById('chk-'+p.id)?.checked);
+  const soma = sel.reduce((a,p)=>a+parseFloat(document.getElementById('val-'+p.id)?.value||0),0);
+  const al = document.getElementById('cr-soma-alert');
+  (total>0 && sel.length>=2 && Math.abs(total-soma)>0.01) ? al.classList.remove('hidden') : al.classList.add('hidden');
+}
+
+function distribuirCredito() {
+  const total = parseFloat(document.getElementById('cr-valor').value||0);
+  const sel = postos.filter(p=>document.getElementById('chk-'+p.id)?.checked);
+  if(sel.length>=2 && total>0) {
+    const por = (total/sel.length).toFixed(2);
+    sel.forEach(p=>{ document.getElementById('val-'+p.id).value=por; });
+    atualizarSomaCredito();
+  }
+}
+
+async function salvarCredito() {
+  const clienteId = document.getElementById('cr-cliente').value;
+  const total = parseFloat(document.getElementById('cr-valor').value||0);
+  const obs = document.getElementById('cr-obs').value;
+  if(!clienteId||total<=0) return toast('Preencha cliente e valor','red');
+  const sel = postos.filter(p=>document.getElementById('chk-'+p.id)?.checked);
+  if(sel.length<2) return toast('Selecione ao menos 2 postos','red');
+  const itens = sel.map(p=>({posto_id:p.id, valor:parseFloat(document.getElementById('val-'+p.id).value||0)}));
+  if(Math.abs(total-itens.reduce((a,b)=>a+b.valor,0))>0.01) return toast('Soma dos postos não confere','red');
+  const { data: cred, error } = await db.from('creditos').insert({cliente_id:clienteId,valor_total:total,observacao:obs||null}).select().single();
+  if(error) return toast('Erro: '+error.message,'red');
+  const { error: e2 } = await db.from('credito_postos').insert(itens.map(i=>({credito_id:cred.id,posto_id:i.posto_id,valor:i.valor})));
+  if(e2) return toast('Erro ao distribuir: '+e2.message,'red');
+  toast('Crédito registrado!'); closeModal('modal-credito'); loadCreditos();
+}
+
+async function excluirCredito(id) {
+  confirm2('Excluir Crédito','Isso reverterá os saldos distribuídos neste crédito. Confirmar?', async()=>{
+    // Primeiro excluir credito_postos (trigger reverso vai atualizar saldos)
+    await db.from('credito_postos').delete().eq('credito_id',id);
+    const { error } = await db.from('creditos').delete().eq('id',id);
+    if(error) return toast('Erro: '+error.message,'red');
+    toast('Crédito excluído!'); loadCreditos();
+  });
+}
+
+async function loadCreditos() {
+  await carregarBase();
+  const { data } = await db.from('creditos').select('*,clientes(nome),credito_postos(valor,postos(nome))').order('created_at',{ascending:false}).limit(50);
+  const tbody = document.getElementById('credito-body');
+  tbody.innerHTML='';
+  (data||[]).forEach(c=>{
+    const postosStr = (c.credito_postos||[]).map(cp=>`${cp.postos?.nome}: ${fmt(cp.valor)}`).join(' | ');
+    tbody.innerHTML+=`<tr class="table-row">
+      <td class="pr-3 text-gray-400">${fmtDate(c.created_at)}</td>
+      <td class="pr-3 font-medium">${c.clientes?.nome||'—'}</td>
+      <td class="pr-3 font-bold text-green-700">${fmt(c.valor_total)}</td>
+      <td class="pr-3 text-xs text-gray-500">${postosStr}</td>
+      <td><button class="btn-icon" title="Excluir" onclick="excluirCredito('${c.id}')">🗑️</button></td>
+    </tr>`;
+  });
+  if(!(data||[]).length) tbody.innerHTML='<tr><td colspan="5" class="py-4 text-center text-gray-400 text-xs">Nenhum crédito registrado</td></tr>';
+}
+
+// ═══ CONSUMO ═══
+function preencherSelectsCo() {
+  ['co-cliente','co-posto'].forEach(id=>{
+    document.getElementById(id).innerHTML = id==='co-cliente'?'<option value="">Selecione o cliente...</option>':'<option value="">Selecione o posto...</option>';
+  });
+  clientes.forEach(c=>document.getElementById('co-cliente').innerHTML+=`<option value="${c.id}">${c.nome}</option>`);
+  postos.forEach(p=>document.getElementById('co-posto').innerHTML+=`<option value="${p.id}">${p.nome}</option>`);
+}
+
+async function carregarSaldoCliente() {
+  const id = document.getElementById('co-cliente').value;
+  const el = document.getElementById('co-saldo-info');
+  if(!id){el.classList.add('hidden');return;}
+  const { data } = await db.from('saldos').select('saldo,postos(nome)').eq('cliente_id',id).gt('saldo',0);
+  el.innerHTML = data?.length
+    ? '<strong>Saldo disponível:</strong> ' + data.map(s=>`${s.postos?.nome}: ${fmt(s.saldo)}`).join(' | ')
+    : 'Sem saldo disponível neste cliente.';
+  el.classList.remove('hidden');
+}
+
+async function salvarConsumo() {
+  const clienteId = document.getElementById('co-cliente').value;
+  const postoId   = document.getElementById('co-posto').value;
+  const valor     = parseFloat(document.getElementById('co-valor').value||0);
+  const desc      = document.getElementById('co-desc').value;
+  if(!clienteId||!postoId||valor<=0) return toast('Preencha todos os campos obrigatórios','red');
+  const { data: saldo } = await db.from('saldos').select('saldo').eq('cliente_id',clienteId).eq('posto_id',postoId).maybeSingle();
+  if(!saldo||parseFloat(saldo.saldo)<valor) {
+    if(!window.confirm(`Saldo insuficiente neste posto (${fmt(saldo?.saldo||0)}). Registrar mesmo assim?`)) return;
+  }
+  const { error } = await db.from('transacoes').insert({cliente_id:clienteId,posto_id:postoId,valor,descricao:desc||null});
+  if(error) return toast('Erro: '+error.message,'red');
+  toast('Consumo registrado!');
+  closeModal('modal-consumo');
+  document.getElementById('co-valor').value='';
+  document.getElementById('co-desc').value='';
+  document.getElementById('co-saldo-info').classList.add('hidden');
+  loadConsumos();
+}
+
+async function excluirConsumo(id) {
+  confirm2('Excluir Consumo','O saldo será restaurado ao cliente. Confirmar exclusão?', async()=>{
+    const { error } = await db.from('transacoes').delete().eq('id',id);
+    if(error) return toast('Erro: '+error.message,'red');
+    toast('Consumo excluído e saldo restaurado!'); loadConsumos();
+  });
+}
+
+function abrirConferir(t) {
+  document.getElementById('conf-transacao-id').value = t.id;
+  document.getElementById('conf-info').textContent   = `Cliente: ${t.clientes?.nome||'—'} | Posto: ${t.postos?.nome||'—'} | Valor: ${fmt(t.valor)} | ${fmtDT(t.created_at)}`;
+  document.getElementById('conf-valor').value        = t.valor;
+  document.getElementById('conf-status').value       = 'conferido';
+  document.getElementById('conf-obs').value          = '';
+  openModal('modal-conferir');
+}
+
+async function salvarConferencia() {
+  const transacaoId = document.getElementById('conf-transacao-id').value;
+  const valor       = parseFloat(document.getElementById('conf-valor').value||0);
+  const status      = document.getElementById('conf-status').value;
+  const obs         = document.getElementById('conf-obs').value;
+  if(!transacaoId||valor<=0) return toast('Informe o valor recebido','red');
+
+  // Buscar dados da transação
+  const { data: t } = await db.from('transacoes').select('*,postos(nome)').eq('id',transacaoId).single();
+  if(!t) return toast('Transação não encontrada','red');
+
+  // Criar registro de conferência
+  const { error: e1 } = await db.from('conferencia_caixa').insert({
+    transacao_id: transacaoId,
+    posto_id: t.posto_id,
+    data_ref: t.created_at?.slice(0,10)||new Date().toISOString().slice(0,10),
+    valor_esperado: t.valor,
+    valor_recebido: valor,
+    status,
+    observacao: obs||null,
+    conferido_em: new Date().toISOString()
+  });
+  if(e1) return toast('Erro ao salvar conferência: '+e1.message,'red');
+
+  // Marcar transação como conferida
+  await db.from('transacoes').update({conferida:true}).eq('id',transacaoId);
+
+  toast(status==='conferido'?'✅ Recebimento conferido!':'⚠️ Divergência registrada!', status==='conferido'?'green':'yellow');
+  closeModal('modal-conferir');
+  loadConsumos();
+}
+
+async function loadConsumos() {
+  await carregarBase();
+  const { data } = await db.from('transacoes').select('*,clientes(nome),postos(nome)').order('created_at',{ascending:false}).limit(100);
+  const tbody = document.getElementById('consumo-body');
+  tbody.innerHTML='';
+  (data||[]).forEach(t=>{
+    const confBadge = t.conferida
+      ? '<span class="badge-green">Conferido</span>'
+      : `<button onclick='abrirConferir(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="btn-icon" title="Conferir recebimento" style="font-size:18px">✅</button>`;
+    tbody.innerHTML+=`<tr class="table-row">
+      <td class="pr-3 text-gray-400 text-xs">${fmtDT(t.created_at)}</td>
+      <td class="pr-3 font-medium">${t.clientes?.nome||'—'}</td>
+      <td class="pr-3">${t.postos?.nome||'—'}</td>
+      <td class="pr-3 font-bold text-red-600">${fmt(t.valor)}</td>
+      <td class="pr-3 text-xs text-gray-400">${t.descricao||'—'}</td>
+      <td class="flex items-center gap-1">
+        ${confBadge}
+        <button class="btn-icon" title="Excluir" onclick="excluirConsumo('${t.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  });
+  if(!(data||[]).length) tbody.innerHTML='<tr><td colspan="6" class="py-4 text-center text-gray-400 text-xs">Nenhum consumo registrado</td></tr>';
+}
+
+// ═══ REPASSE ═══
+function preencherSelectsRe() {
+  ['re-origem','re-destino'].forEach(id=>{
+    document.getElementById(id).innerHTML='<option value="">Selecione...</option>';
+    postos.forEach(p=>document.getElementById(id).innerHTML+=`<option value="${p.id}">${p.nome}</option>`);
+  });
+}
+
+async function calcularRepasse() {
+  await carregarBase();
+  const { data: saldos } = await db.from('saldos').select('posto_id,saldo');
+  const pos = {};
+  postos.forEach(p=>pos[p.id]={nome:p.nome,saldo:0});
+  (saldos||[]).forEach(s=>{ if(pos[s.posto_id]) pos[s.posto_id].saldo+=parseFloat(s.saldo||0); });
+
+  const el = document.getElementById('repasse-posicoes');
+  el.innerHTML='';
+  Object.values(pos).forEach(p=>{
+    const bStyle = p.saldo>0.01?'border-color:#86efac;background:#f0fdf4':p.saldo<-0.01?'border-color:#fca5a5;background:#fef2f2':'border-color:#e5e7eb;background:#fff';
+    const badge  = p.saldo>0.01?'<span class="badge-green">Deve repassar</span>':p.saldo<-0.01?'<span class="badge-red">A receber</span>':'<span class="badge-gray">Zerado</span>';
+    const vColor = p.saldo>0?'#16a34a':p.saldo<0?'#dc2626':'#6b7280';
+    el.innerHTML+=`<div class="card" style="border:1px solid;${bStyle}">
+      <div class="font-semibold text-sm text-gray-800">${p.nome}</div>
+      <div class="text-xl font-bold mt-1" style="color:${vColor}">${fmt(p.saldo)}</div>
+      <div class="mt-2">${badge}</div>
+    </div>`;
+  });
+
+  const dev = Object.entries(pos).filter(([,v])=>v.saldo>0.01).map(([id,v])=>({id,nome:v.nome,valor:v.saldo}));
+  const cre = Object.entries(pos).filter(([,v])=>v.saldo<-0.01).map(([id,v])=>({id,nome:v.nome,valor:Math.abs(v.saldo)}));
+  if(!dev.length||!cre.length){ document.getElementById('repasse-sugestao').classList.add('hidden'); sugestaoRepasse=[]; toast('Posições calculadas!','blue'); return; }
+
+  sugestaoRepasse=[];
+  const d=dev.map(x=>({...x})), c=cre.map(x=>({...x}));
+  let di=0,ci=0;
+  while(di<d.length&&ci<c.length){
+    const val=Math.min(d[di].valor,c[ci].valor);
+    if(val>0.01) sugestaoRepasse.push({origem_id:d[di].id,origem:d[di].nome,destino_id:c[ci].id,destino:c[ci].nome,valor:val});
+    d[di].valor-=val; c[ci].valor-=val;
+    if(d[di].valor<0.01) di++;
+    if(c[ci].valor<0.01) ci++;
+  }
+  document.getElementById('repasse-sugestao-list').innerHTML=sugestaoRepasse.map(r=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:#fff;border-radius:8px;border:1px solid #fde68a;font-size:13px">
+      <span><strong>${r.origem}</strong> → <strong>${r.destino}</strong></span>
+      <span style="font-weight:700;color:#92400e">${fmt(r.valor)}</span>
+    </div>`).join('');
+  document.getElementById('repasse-sugestao').classList.remove('hidden');
+  toast('Posições calculadas!','blue');
+}
+
+async function confirmarSugestao() {
+  if(!sugestaoRepasse.length) return;
+  const hoje=new Date().toISOString().slice(0,10);
+  const { error } = await db.from('repasses').insert(sugestaoRepasse.map(r=>({
+    posto_origem_id:r.origem_id,posto_destino_id:r.destino_id,
+    valor:parseFloat(r.valor.toFixed(2)),data_repasse:hoje,status:'pendente'
+  })));
+  if(error) return toast('Erro: '+error.message,'red');
+  toast('Repasses registrados!');
+  document.getElementById('repasse-sugestao').classList.add('hidden');
+  sugestaoRepasse=[];
+  loadRepasses();
+}
+
+async function salvarRepasse() {
+  const oId=document.getElementById('re-origem').value;
+  const dId=document.getElementById('re-destino').value;
+  const val=parseFloat(document.getElementById('re-valor').value||0);
+  const data=document.getElementById('re-data').value;
+  if(!oId||!dId||val<=0||!data) return toast('Preencha todos os campos','red');
+  if(oId===dId) return toast('Origem e destino devem ser diferentes','red');
+  const { error } = await db.from('repasses').insert({posto_origem_id:oId,posto_destino_id:dId,valor:val,data_repasse:data,observacao:document.getElementById('re-obs').value||null,status:'pendente'});
+  if(error) return toast('Erro: '+error.message,'red');
+  toast('Repasse registrado!'); closeModal('modal-repasse'); loadRepasses();
+}
+
+async function confirmarRepasse(id) {
+  const { error } = await db.from('repasses').update({status:'confirmado',confirmado_em:new Date().toISOString()}).eq('id',id);
+  if(error) return toast('Erro: '+error.message,'red');
+  toast('Repasse confirmado!'); loadRepasses();
+}
+
+async function excluirRepasse(id) {
+  confirm2('Excluir Repasse','Deseja excluir este repasse?', async()=>{
+    const { error } = await db.from('repasses').delete().eq('id',id);
+    if(error) return toast('Erro: '+error.message,'red');
+    toast('Repasse excluído!'); loadRepasses();
+  });
+}
+
+async function loadRepasses() {
+  await carregarBase();
+  const { data } = await db.from('repasses')
+    .select('*,postos!repasses_posto_origem_id_fkey(nome),dest:postos!repasses_posto_destino_id_fkey(nome)')
+    .order('data_repasse',{ascending:false}).limit(100);
+  const tbody=document.getElementById('repasse-body');
+  tbody.innerHTML='';
+  (data||[]).forEach(r=>{
+    const badge=r.status==='confirmado'?'badge-green':r.status==='cancelado'?'badge-red':'badge-yellow';
+    const label=r.status==='confirmado'?'Confirmado':r.status==='cancelado'?'Cancelado':'Pendente';
+    const acoes = r.status==='pendente'
+      ? `<button onclick="confirmarRepasse('${r.id}')" class="btn-green" style="font-size:11px;padding:4px 8px">✓</button>
+         <button onclick="excluirRepasse('${r.id}')" class="btn-icon">🗑️</button>`
+      : `<button onclick="excluirRepasse('${r.id}')" class="btn-icon">🗑️</button>`;
+    tbody.innerHTML+=`<tr class="table-row">
+      <td class="pr-3 text-gray-400">${fmtDate(r.data_repasse)}</td>
+      <td class="pr-3">${r.postos?.nome||'—'}</td>
+      <td class="pr-3">${r.dest?.nome||'—'}</td>
+      <td class="pr-3 font-bold">${fmt(r.valor)}</td>
+      <td class="pr-3"><span class="${badge}">${label}</span></td>
+      <td class="flex items-center gap-1">${acoes}</td>
+    </tr>`;
+  });
+  if(!(data||[]).length) tbody.innerHTML='<tr><td colspan="6" class="py-4 text-center text-gray-400 text-xs">Nenhum repasse registrado</td></tr>';
+}
+
+
+// ═══ CAIXAS ═══
+function fmtBRL(v) {
+  if (v === null || v === undefined || v === '') return '';
+  return parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function parseBRL(s) {
+  if (!s || s.trim() === '' || s.trim() === '—') return null;
+  // accept "1.234,56" or "1234,56" or "1234.56"
+  let cleaned = s.replace(/[R$\s]/g, '').trim();
+  // if has dot and comma, dot is thousands separator
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+  } else if (cleaned.includes(',')) {
+    cleaned = cleaned.replace(',', '.');
+  }
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? null : n;
+}
+
+async function loadCaixas() {
+  await carregarBase();
+  const inicioEl = document.getElementById('caixas-inicio');
+  if (!inicioEl.value) {
+    // default: 29/06/2026
+    inicioEl.value = '2026-06-29';
+  }
+  const inicio = new Date(inicioEl.value + 'T00:00:00');
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+
+  // Build list of dates from inicio to today
+  const datas = [];
+  for (let d = new Date(hoje); d >= inicio; d.setDate(d.getDate()-1)) {
+    datas.push(new Date(d).toISOString().slice(0,10));
+  }
+
+  // Load existing caixas data
+  const dataMin = datas[datas.length-1];
+  const { data: rows } = await db.from('caixas').select('*').gte('data', dataMin);
+  const mapa = {};
+  (rows||[]).forEach(r => { mapa[r.posto_id+'|'+r.data] = r; });
+
+  // Build header
+  const thead = document.getElementById('caixas-thead');
+  thead.innerHTML = '<tr><th class="cx-head" style="position:sticky;left:0;z-index:3;background:#f8fafc">Data</th>' +
+    postos.map(p => `<th class="cx-head">${p.nome}</th>`).join('') + '</tr>';
+
+  // Build body
+  const tbody = document.getElementById('caixas-tbody');
+  tbody.innerHTML = '';
+  datas.forEach(data => {
+    const tr = document.createElement('tr');
+    const dtLabel = new Date(data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',weekday:'short'});
+    const isHoje = data === hoje.toISOString().slice(0,10);
+    tr.innerHTML = `<td class="cx-date"${isHoje?' style="color:#2563eb"':''}>
+      ${isHoje ? '<strong>'+dtLabel+'</strong>' : dtLabel}
+    </td>`;
+    postos.forEach(p => {
+      const reg = mapa[p.id+'|'+data];
+      const val = reg?.valor != null ? reg.valor : null;
+      const ok  = reg?.conferido ? 'ok' : '';
+      const rid = reg?.id || '';
+      const displayVal = fmtBRL(val);
+      const confClass = ok ? ' conferido' : '';
+      const td = document.createElement('td');
+      td.className = 'cx-cell';
+      td.innerHTML = `<div class="cx-inner">
+        <span class="cx-prefix">R$</span>
+        <input type="text" inputmode="decimal" class="cx-val${confClass}"
+          value="${displayVal}"
+          placeholder="0,00"
+          data-posto="${p.id}" data-data="${data}" data-rid="${rid}"
+          onfocus="this.select()"
+          onblur="salvarCaixaValor(this)"
+          onkeydown="if(event.key==='Enter'){this.blur()}"
+        />
+        <div class="cx-circle ${ok}" title="${ok?'Conferido — clique para desmarcar':'Clique para marcar como conferido'}"
+          data-posto="${p.id}" data-data="${data}" data-rid="${rid}"
+          onclick="toggleCaixaOk(this)">
+        </div>
+      </div>`;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+async function salvarCaixaValor(input) {
+  const postoId = input.dataset.posto;
+  const data    = input.dataset.data;
+  const typed   = input.value.trim();
+  const valor   = parseBRL(typed);
+
+  // reformat display
+  input.value = fmtBRL(valor) || '';
+
+  if (valor === null && !input.dataset.rid) return; // nada a salvar
+
+  let rid = input.dataset.rid;
+  if (rid) {
+    await db.from('caixas').update({ valor }).eq('id', rid);
+  } else {
+    if (valor === null) return;
+    const { data: ins } = await db.from('caixas').insert({ posto_id:postoId, data, valor }).select().single();
+    rid = ins?.id || '';
+    input.dataset.rid = rid;
+    const circle = input.closest('.cx-inner').querySelector('.cx-circle');
+    if (circle) circle.dataset.rid = rid;
+  }
+}
+
+async function toggleCaixaOk(circle) {
+  const postoId = circle.dataset.posto;
+  const data    = circle.dataset.data;
+  let rid       = circle.dataset.rid;
+  const novoOk  = !circle.classList.contains('ok');
+
+  if (!rid) {
+    // need to create record first
+    const { data: ins } = await db.from('caixas').insert({
+      posto_id: postoId, data, conferido: novoOk, conferido_em: novoOk ? new Date().toISOString() : null
+    }).select().single();
+    rid = ins?.id || '';
+    circle.dataset.rid = rid;
+    const inp = circle.closest('.cx-inner').querySelector('.cx-val');
+    if (inp) inp.dataset.rid = rid;
+  } else {
+    await db.from('caixas').update({
+      conferido: novoOk,
+      conferido_em: novoOk ? new Date().toISOString() : null
+    }).eq('id', rid);
+  }
+
+  circle.classList.toggle('ok', novoOk);
+  circle.title = novoOk ? 'Conferido — clique para desmarcar' : 'Clique para marcar como conferido';
+  // change input color: green = conferido, red = pendente
+  const inp = circle.closest('.cx-inner')?.querySelector('.cx-val');
+  if (inp) inp.classList.toggle('conferido', novoOk);
+  toast(novoOk ? '✓ Marcado como conferido' : 'Desmarcado', novoOk ? 'green' : 'yellow');
+}
+
+// ── AUTH ──
+const _CRED = {u:'controle',s:'parente01'};
+function fazerLogin() {
+  const u=document.getElementById('login-user').value.trim();
+  const s=document.getElementById('login-pass').value;
+  if(u===_CRED.u && s===_CRED.s) {
+    sessionStorage.setItem('auth','1');
+    document.getElementById('login-screen').remove();
+    carregarBase().then(()=>showPage('dashboard'));
+  } else {
+    document.getElementById('login-error').style.display='block';
+    document.getElementById('login-pass').value='';
+  }
+}
+function fazerLogout() { sessionStorage.removeItem('auth'); location.reload(); }
+// Check session on load
+if(sessionStorage.getItem('auth')==='1') {
+  document.addEventListener('DOMContentLoaded',()=>{
+    const ls=document.getElementById('login-screen');
+    if(ls) ls.remove();
+    carregarBase().then(()=>showPage('dashboard'));
+  });
+}
+
+// Init is handled by login flow
+</script>
+</body>
+</html>
