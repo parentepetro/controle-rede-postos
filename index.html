@@ -1,1252 +1,819 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Controle — Rede de Postos</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { background:#f1f5f9; font-family:system-ui,-apple-system,sans-serif; }
-    .active-nav { background:rgba(255,255,255,.2) !important; color:#fff !important; font-weight:700 !important; }
-    .nav-link { display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;font-size:14px;font-weight:500;transition:all .15s;cursor:pointer;border:none;background:none;width:100%;text-align:left;color:#bfdbfe; }
-    .nav-link:hover { background:rgba(255,255,255,.12); color:#fff; }
-    .badge-green  { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534; }
-    .badge-red    { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b; }
-    .badge-yellow { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fef9c3;color:#854d0e; }
-    .badge-blue   { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af; }
-    .badge-gray   { display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f3f4f6;color:#374151; }
-    .card { background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);border:1px solid #e5e7eb;padding:20px; }
-    .btn-primary   { background:#2563eb;color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap; }
-    .btn-primary:hover { background:#1d4ed8; }
-    .btn-secondary { background:#f3f4f6;color:#374151;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:background .15s; }
-    .btn-secondary:hover { background:#e5e7eb; }
-    .btn-green  { background:#16a34a;color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap; }
-    .btn-green:hover { background:#15803d; }
-    .btn-red    { background:#dc2626;color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap; }
-    .btn-red:hover { background:#b91c1c; }
-    .btn-icon { background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:14px;transition:background .15s; }
-    .btn-icon:hover { background:#f3f4f6; }
-    .input { width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box;background:#fff; }
-    .input:focus { border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15); }
-    .label { display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px; }
-    .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px; }
-    .modal { background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);width:100%;max-width:520px;max-height:90vh;overflow-y:auto; }
-    .table-row { border-bottom:1px solid #f3f4f6;transition:background .1s; }
-    .table-row:hover { background:#f9fafb; }
-    .table-row td { padding:10px 12px 10px 0;vertical-align:middle;font-size:13px; }
-    .pos-card { padding:12px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb; }
-    /* stat card */
-    .stat-card { background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06); }
-    .stat-val { font-size:22px;font-weight:700;line-height:1.1;margin:4px 0 2px; }
-    .stat-lbl { font-size:11px;color:#6b7280;font-weight:500; }
-
-    /* ── Caixas ── */
-    .cx-cell { padding:8px 10px; border:1px solid #f0f0f0; vertical-align:middle; min-width:130px; }
-    .cx-head { padding:8px 10px; border:1px solid #e5e7eb; font-size:11px; font-weight:700; color:#374151; text-align:center; white-space:nowrap; background:#f8fafc; }
-    .cx-date { padding:8px 10px; font-size:12px; font-weight:600; color:#374151; white-space:nowrap; border:1px solid #f0f0f0; background:#fafafa; position:sticky; left:0; z-index:1; }
-    .cx-inner { display:flex; align-items:center; gap:4px; }
-    .cx-prefix { font-size:12px; font-weight:700; color:#9ca3af; flex-shrink:0; user-select:none; }
-    .cx-val { flex:1; border:1px solid transparent; border-radius:6px; padding:4px 4px; font-size:13px; font-weight:700; color:#dc2626; background:transparent; cursor:pointer; min-width:80px; text-align:right; }
-    .cx-val:hover { border-color:#fca5a5; background:#fff5f5; }
-    .cx-val:focus { border-color:#3b82f6; background:#fff; outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.15); color:#111; }
-    .cx-val.conferido { color:#16a34a !important; }
-    .cx-val:focus.conferido { color:#111 !important; }
-    .cx-circle { width:22px; height:22px; border-radius:50%; border:2px solid #d1d5db; background:#fff; cursor:pointer; flex-shrink:0; transition:all .15s; display:flex; align-items:center; justify-content:center; }
-    .cx-circle:hover { border-color:#16a34a; }
-    .cx-circle.ok { background:#16a34a; border-color:#16a34a; }
-    .cx-circle.ok::after { content:'✓'; color:#fff; font-size:12px; font-weight:700; }
-    #login-screen { position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 60%,#2563eb 100%);display:flex;align-items:center;justify-content:center;padding:24px; }
-    #login-box { background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:360px;box-shadow:0 25px 80px rgba(0,0,0,.3); }
-    #login-error { display:none;color:#dc2626;font-size:13px;margin-top:8px;font-weight:500; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Controle — Rede de Postos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f1f5f9;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh}
+/* LOGIN */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);position:fixed;inset:0;z-index:9999}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.login-box h1{font-size:24px;color:#1e293b;margin-bottom:4px;text-align:center}
+.login-box p{font-size:13px;color:#64748b;text-align:center;margin-bottom:24px}
+.login-box .logo{font-size:40px;text-align:center;margin-bottom:12px}
+/* LAYOUT */
+.app{display:none;height:100vh;overflow:hidden}
+.header{position:fixed;top:0;left:0;right:0;height:56px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:40;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-left .logo{font-size:22px}
+.header-left h1{font-size:16px;font-weight:700;color:#1e293b}
+.header-right{display:flex;align-items:center;gap:12px}
+.hamburger{display:none;background:none;border:none;font-size:22px;cursor:pointer;padding:4px}
+.sidebar{position:fixed;top:56px;left:0;bottom:0;width:220px;background:linear-gradient(180deg,#1e40af 0%,#1d4ed8 100%);padding:16px 10px;overflow-y:auto;z-index:30;transition:transform .2s}
+.nav-link{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;font-size:13px;font-weight:500;transition:all .15s;cursor:pointer;border:none;background:none;width:100%;text-align:left;color:#bfdbfe;margin-bottom:2px}
+.nav-link:hover{background:rgba(255,255,255,.12);color:#fff}
+.active-nav{background:rgba(255,255,255,.2)!important;color:#fff!important;font-weight:700!important}
+.main{margin-top:56px;margin-left:220px;padding:24px;height:calc(100vh - 56px);overflow-y:auto}
+/* CARDS */
+.card{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);border:1px solid #e5e7eb;padding:20px}
+.stat-card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.stat-val{font-size:22px;font-weight:700;line-height:1.1;margin:4px 0 2px}
+.stat-lbl{font-size:11px;color:#6b7280;font-weight:500;text-transform:uppercase}
+/* BUTTONS */
+.btn-primary{background:#2563eb;color:#fff;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap}
+.btn-primary:hover{background:#1d4ed8}
+.btn-secondary{background:#f3f4f6;color:#374151;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;transition:background .15s}
+.btn-secondary:hover{background:#e5e7eb}
+.btn-green{background:#16a34a;color:#fff;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap}
+.btn-green:hover{background:#15803d}
+.btn-red{background:#dc2626;color:#fff;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;transition:background .15s;white-space:nowrap}
+.btn-red:hover{background:#b91c1c}
+.btn-icon{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:14px;transition:background .15s}
+.btn-icon:hover{background:#f3f4f6}
+.btn-sm{padding:5px 10px;font-size:12px}
+/* INPUTS */
+.input{width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box;background:#fff}
+.input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px}
+select.input{appearance:auto}
+/* BADGES */
+.badge-green{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534}
+.badge-red{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b}
+.badge-yellow{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fef9c3;color:#854d0e}
+.badge-blue{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af}
+/* TABLE */
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 12px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;border-bottom:2px solid #e5e7eb}
+td{padding:10px 12px;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6}
+tr:hover td{background:#f9fafb}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:18px;font-weight:700;color:#1e293b}
+.modal-body{padding:20px 24px}
+.modal-footer{padding:0 24px 20px;display:flex;gap:8px;justify-content:flex-end}
+/* TOAST */
+.toast-container{position:fixed;top:70px;right:20px;z-index:100;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:slideIn .3s ease}
+.toast-success{background:#16a34a}
+.toast-error{background:#dc2626}
+.toast-info{background:#2563eb}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* CAIXAS */
+.cx-table{border-collapse:collapse;width:100%}
+.cx-head{padding:8px 10px;border:1px solid #e5e7eb;font-size:11px;font-weight:700;color:#374151;text-align:center;white-space:nowrap;background:#f8fafc;position:sticky;top:0;z-index:2}
+.cx-date{padding:8px 10px;font-size:12px;font-weight:600;color:#374151;white-space:nowrap;border:1px solid #f0f0f0;background:#fafafa;position:sticky;left:0;z-index:1}
+.cx-date-today{background:#dbeafe!important;color:#1e40af!important;font-weight:800!important}
+.cx-cell{padding:6px 8px;border:1px solid #f0f0f0;vertical-align:middle;min-width:140px}
+.cx-inner{display:flex;align-items:center;gap:4px}
+.cx-prefix{font-size:12px;font-weight:700;color:#9ca3af;flex-shrink:0;user-select:none}
+.cx-val{flex:1;border:1px solid transparent;border-radius:6px;padding:4px 6px;font-size:13px;font-weight:700;color:#dc2626;background:transparent;min-width:70px;text-align:right;outline:none}
+.cx-val:hover{border-color:#fca5a5;background:#fff5f5}
+.cx-val:focus{border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.15);color:#111}
+.cx-val.conferido{color:#16a34a!important}
+.cx-val:focus.conferido{color:#111!important}
+.cx-check{width:18px;height:18px;border-radius:50%;border:2px solid #d1d5db;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;flex-shrink:0;transition:all .15s;background:#fff}
+.cx-check:hover{border-color:#16a34a}
+.cx-check.checked{background:#16a34a;border-color:#16a34a;color:#fff}
+/* GRID */
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+/* MISC */
+.page{display:none}
+.page.active{display:block}
+.flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-2{gap:8px}.gap-3{gap:12px}.gap-4{gap:16px}
+.mb-3{margin-bottom:12px}.mb-4{margin-bottom:16px}.mb-6{margin-bottom:24px}
+.mt-4{margin-top:16px}.mt-6{margin-top:24px}
+.text-sm{font-size:13px}.text-xs{font-size:11px}
+.font-bold{font-weight:700}
+.text-gray{color:#6b7280}
+.w-full{width:100%}
+.overflow-x{overflow-x:auto}
+.pos-card{padding:14px;border-radius:10px;border:1px solid #e5e7eb;background:#f9fafb}
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .hamburger{display:block}
+  .grid-4{grid-template-columns:repeat(2,1fr)}
+  .grid-3{grid-template-columns:1fr}
+  .grid-2{grid-template-columns:1fr}
+}
+</style>
 </head>
 <body>
 
 <!-- LOGIN -->
-<div id="login-screen">
-  <div id="login-box">
-    <div style="text-align:center;margin-bottom:24px">
-      <div style="width:52px;height:52px;background:#2563eb;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px">⛽</div>
-      <h2 style="font-size:20px;font-weight:800;color:#111;margin:0">Controle</h2>
-      <p style="font-size:13px;color:#6b7280;margin:4px 0 0">Rede de Postos</p>
+<div id="loginPage" class="login-page">
+  <div class="login-box">
+    <div class="logo">⛽</div>
+    <h1>Controle</h1>
+    <p>Rede de Postos — Gestão Financeira</p>
+    <div style="margin-bottom:16px">
+      <label class="label">Usuário</label>
+      <input type="text" id="loginUser" class="input" placeholder="Digite seu usuário" autocomplete="username"/>
     </div>
-    <div style="margin-bottom:14px">
-      <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">Usuário</label>
-      <input id="login-user" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box" placeholder="usuário" autocomplete="username" />
+    <div style="margin-bottom:20px">
+      <label class="label">Senha</label>
+      <input type="password" id="loginPass" class="input" placeholder="••••••••" autocomplete="current-password"/>
     </div>
-    <div style="margin-bottom:6px">
-      <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">Senha</label>
-      <input id="login-pass" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()" />
-    </div>
-    <div id="login-error">Usuário ou senha incorretos.</div>
-    <button onclick="fazerLogin()" style="width:100%;margin-top:20px;background:#2563eb;color:#fff;font-size:15px;font-weight:700;padding:11px;border-radius:10px;border:none;cursor:pointer">Entrar</button>
+    <button id="loginBtn" class="btn-primary w-full" style="padding:10px;font-size:14px;width:100%">Entrar</button>
+    <p id="loginError" style="color:#dc2626;font-size:12px;margin-top:10px;text-align:center;display:none">Usuário ou senha inválidos</p>
   </div>
 </div>
 
-<div id="app" class="min-h-screen flex flex-col">
-
-  <!-- Header -->
-  <header class="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">⛽</div>
-      <div>
-        <h1 class="font-bold text-gray-900 text-sm leading-none">Controle</h1>
-        <p class="text-xs text-gray-400 mt-0.5">Rede de Postos</p>
-      </div>
+<!-- APP -->
+<div id="app" class="app">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <span class="logo">⛽</span>
+      <h1>Controle</h1>
     </div>
-    <button onclick="fazerLogout()" title="Sair" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#6b7280;font-size:18px">🚪</button>
-      <button onclick="toggleMenu()" class="md:hidden p-2 rounded-lg hover:bg-gray-100">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
+    <div class="header-right">
+      <span style="font-size:12px;color:#6b7280" id="userLabel"></span>
+      <button class="btn-secondary btn-sm" onclick="logout()">Sair</button>
+    </div>
   </header>
 
-  <div class="flex flex-1">
-    <!-- Sidebar desktop -->
-    <nav class="hidden md:flex flex-col w-52 p-3 gap-1 fixed top-14 left-0 bottom-0 overflow-y-auto" style="background:linear-gradient(180deg,#1e40af 0%,#1d4ed8 100%);">
-      <div class="px-3 py-2 mb-1">
-        <p class="text-xs font-semibold uppercase tracking-widest" style="color:rgba(255,255,255,.45)">Menu</p>
-      </div>
-      <button onclick="showPage('dashboard')" class="nav-link" id="nav-dashboard">📊 Dashboard</button>
-      <button onclick="showPage('postos')" class="nav-link" id="nav-postos">🏪 Postos</button>
-      <button onclick="showPage('clientes')" class="nav-link" id="nav-clientes">👥 Clientes</button>
-      <hr class="my-2" style="border-color:rgba(255,255,255,.15)"/>
-      <button onclick="showPage('credito')" class="nav-link" id="nav-credito">💰 Crédito Antecipado</button>
-      <button onclick="showPage('consumo')" class="nav-link" id="nav-consumo">⛽ Consumo</button>
-      <hr class="my-2" style="border-color:rgba(255,255,255,.15)"/>
-      <button onclick="showPage('repasse')" class="nav-link" id="nav-repasse">🔄 Repasse</button>
-      <button onclick="showPage('caixas')" class="nav-link" id="nav-caixas">🗂️ Caixas</button>
-    </nav>
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <button class="nav-link active-nav" data-page="dashboard" onclick="navigate('dashboard')">📊 Dashboard</button>
+    <button class="nav-link" data-page="postos" onclick="navigate('postos')">🏪 Postos</button>
+    <button class="nav-link" data-page="clientes" onclick="navigate('clientes')">👥 Clientes</button>
+    <button class="nav-link" data-page="creditos" onclick="navigate('creditos')">💰 Crédito Antecipado</button>
+    <button class="nav-link" data-page="consumo" onclick="navigate('consumo')">⛽ Consumo</button>
+    <button class="nav-link" data-page="repasses" onclick="navigate('repasses')">🔄 Repasses</button>
+    <button class="nav-link" data-page="caixas" onclick="navigate('caixas')">🗂️ Caixas</button>
+  </nav>
 
-    <!-- Mobile menu -->
-    <div id="mobile-menu" class="hidden fixed inset-0 z-30" style="background:rgba(0,0,0,.5)" onclick="toggleMenu()">
-      <div class="w-52 h-full p-3 flex flex-col gap-1 shadow-xl" style="background:linear-gradient(180deg,#1e40af 0%,#1d4ed8 100%)" onclick="e=>e.stopPropagation()">
-        <div class="px-3 py-2 mb-1">
-          <p class="text-xs font-semibold uppercase tracking-widest" style="color:rgba(255,255,255,.45)">Menu</p>
-        </div>
-        <button onclick="showPage('dashboard');toggleMenu()" class="nav-link">📊 Dashboard</button>
-        <button onclick="showPage('postos');toggleMenu()" class="nav-link">🏪 Postos</button>
-        <button onclick="showPage('clientes');toggleMenu()" class="nav-link">👥 Clientes</button>
-        <hr class="my-2" style="border-color:rgba(255,255,255,.15)"/>
-        <button onclick="showPage('credito');toggleMenu()" class="nav-link">💰 Crédito Antecipado</button>
-        <button onclick="showPage('consumo');toggleMenu()" class="nav-link">⛽ Consumo</button>
-        <hr class="my-2" style="border-color:rgba(255,255,255,.15)"/>
-        <button onclick="showPage('repasse');toggleMenu()" class="nav-link">🔄 Repasse</button>
-        <button onclick="showPage('caixas');toggleMenu()" class="nav-link">🗂️ Caixas</button>
+  <!-- MAIN -->
+  <main class="main" id="mainContent">
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="flex items-center justify-between mb-4">
+        <h2 style="font-size:20px;font-weight:700;color:#1e293b">Dashboard</h2>
+        <button class="btn-secondary btn-sm" onclick="loadDashboard()">↻ Atualizar</button>
+      </div>
+      <div class="grid-4 mb-6" id="kpiCards"></div>
+      <h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:12px">Posição por Posto</h3>
+      <div class="grid-3 mb-6" id="postoCards"></div>
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:12px">Últimos Repasses</h3>
+        <div class="overflow-x"><table id="dashRepasses"><thead><tr><th>Data</th><th>Origem</th><th>Destino</th><th>Valor</th><th>Status</th></tr></thead><tbody></tbody></table></div>
       </div>
     </div>
 
-    <!-- Main -->
-    <main class="flex-1 md:ml-52 p-4 md:p-6 min-w-0">
+    <!-- POSTOS -->
+    <div id="page-postos" class="page">
+      <div class="flex items-center justify-between mb-4">
+        <h2 style="font-size:20px;font-weight:700;color:#1e293b">Postos</h2>
+        <button class="btn-primary" onclick="openPostoModal()">+ Novo Posto</button>
+      </div>
+      <div class="card overflow-x">
+        <table id="tblPostos"><thead><tr><th>Nome</th><th>CNPJ</th><th>Endereço</th><th>Status</th><th>Ações</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
 
-      <!-- ═══ DASHBOARD ═══ -->
-      <div id="page-dashboard" class="hidden">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-xl font-bold text-gray-900">Dashboard</h2>
-          <button onclick="loadDashboard()" class="btn-secondary text-xs">↻ Atualizar</button>
-        </div>
-
-        <!-- Resumo financeiro -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div class="stat-card">
-            <div class="stat-lbl">💰 Crédito Total</div>
-            <div class="stat-val text-green-600" id="dc-credito">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-lbl">🔴 Débito (Consumo)</div>
-            <div class="stat-val text-red-600" id="dc-debito">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-lbl">💼 Saldo Líquido</div>
-            <div class="stat-val" id="dc-saldo-liq" style="color:#1d4ed8">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-lbl">🔄 Repasses Pendentes</div>
-            <div class="stat-val text-yellow-600" id="dc-repasse">—</div>
-          </div>
-        </div>
-
-        <!-- Cards por posto -->
-        <h3 class="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wide">Posição por Posto</h3>
-        <div id="dash-postos" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"></div>
-
-        <!-- Últimos Repasses -->
-        <h3 class="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wide">Últimos Repasses</h3>
-        <div class="card overflow-x-auto mb-6">
-          <table class="w-full text-sm">
-            <thead><tr class="text-left border-b border-gray-100">
-              <th class="pb-2 pr-3 text-gray-500 font-medium text-xs">Data</th>
-              <th class="pb-2 pr-3 text-gray-500 font-medium text-xs">Origem</th>
-              <th class="pb-2 pr-3 text-gray-500 font-medium text-xs">Destino</th>
-              <th class="pb-2 pr-3 text-gray-500 font-medium text-xs">Valor</th>
-              <th class="pb-2 text-gray-500 font-medium text-xs">Status</th>
-            </tr></thead>
-            <tbody id="dash-repasses-body"></tbody>
-          </table>
+    <!-- CLIENTES -->
+    <div id="page-clientes" class="page">
+      <div class="flex items-center justify-between mb-4">
+        <h2 style="font-size:20px;font-weight:700;color:#1e293b">Clientes</h2>
+        <div class="flex gap-2">
+          <input type="text" id="searchCliente" class="input" placeholder="Buscar por nome..." style="width:200px" oninput="loadClientes()"/>
+          <button class="btn-primary" onclick="openClienteModal()">+ Novo Cliente</button>
         </div>
       </div>
+      <div class="card overflow-x">
+        <table id="tblClientes"><thead><tr><th>Nome</th><th>CPF/CNPJ</th><th>Telefone</th><th>Email</th><th>Status</th><th>Ações</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
 
-      <!-- ═══ POSTOS ═══ -->
-      <div id="page-postos" class="hidden">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-xl font-bold text-gray-900">Postos</h2>
-          <button class="btn-primary" onclick="abrirModalPosto()">+ Novo Posto</button>
-        </div>
-        <div class="card overflow-x-auto">
-          <table class="w-full">
-            <thead><tr class="text-left border-b border-gray-100">
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Nome</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">CNPJ</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Endereço</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Status</th>
-              <th class="pb-2 text-xs text-gray-500 font-medium">Ações</th>
-            </tr></thead>
-            <tbody id="postos-body"></tbody>
-          </table>
+    <!-- CREDITOS -->
+    <div id="page-creditos" class="page">
+      <div class="flex items-center justify-between mb-4">
+        <h2 style="font-size:20px;font-weight:700;color:#1e293b">Crédito Antecipado</h2>
+        <button class="btn-primary" onclick="openCreditoModal()">+ Novo Crédito</button>
+      </div>
+      <div class="card overflow-x">
+        <table id="tblCreditos"><thead><tr><th>Data</th><th>Cliente</th><th>Valor Total</th><th>Distribuição</th><th>Observação</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- CONSUMO -->
+    <div id="page-consumo" class="page">
+      <div class="flex items-center justify-between mb-4">
+        <h2 style="font-size:20px;font-weight:700;color:#1e293b">Consumo</h2>
+        <button class="btn-primary" onclick="openConsumoModal()">+ Registrar Consumo</button>
+      </div>
+      <div class="card overflow-x">
+        <table id="tblConsumo"><thead><tr><th>Data</th><th>Cliente</th><th>Posto</th><th>Valor</th><th>Descrição</th><th>Ações</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- REPASSES -->
+    <div id="page-repasses" class="page">
+      <div class="flex items-center justify-between mb-4">
+        <h2 style="font-size:20px;font-weight:700;color:#1e293b">Repasses</h2>
+        <div class="flex gap-2">
+          <button class="btn-green" onclick="calcularRepasse()">⚡ Calcular Repasse</button>
+          <button class="btn-primary" onclick="openRepasseModal()">+ Novo Repasse</button>
         </div>
       </div>
-
-      <!-- ═══ CLIENTES ═══ -->
-      <div id="page-clientes" class="hidden">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-xl font-bold text-gray-900">Clientes</h2>
-          <button class="btn-primary" onclick="abrirModalCliente()">+ Novo Cliente</button>
-        </div>
-        <div class="mb-4">
-          <input type="text" id="busca-cliente" class="input" style="max-width:280px" placeholder="🔍 Buscar cliente..." oninput="filtrarClientes()" />
-        </div>
-        <div class="card overflow-x-auto">
-          <table class="w-full">
-            <thead><tr class="text-left border-b border-gray-100">
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Nome</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">CPF/CNPJ</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Telefone</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Saldo Total</th>
-              <th class="pb-2 text-xs text-gray-500 font-medium">Ações</th>
-            </tr></thead>
-            <tbody id="clientes-body"></tbody>
-          </table>
-        </div>
+      <h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:12px">Posição Líquida por Posto</h3>
+      <div class="grid-3 mb-6" id="posicaoLiquida"></div>
+      <div id="sugestaoRepasse" class="mb-6" style="display:none"></div>
+      <div class="card overflow-x">
+        <h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:12px">Repasses Registrados</h3>
+        <table id="tblRepasses"><thead><tr><th>Data</th><th>Origem</th><th>Destino</th><th>Valor</th><th>Status</th><th>Obs</th><th>Ações</th></tr></thead><tbody></tbody></table>
       </div>
+    </div>
 
-      <!-- ═══ CRÉDITO ANTECIPADO ═══ -->
-      <div id="page-credito" class="hidden">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-xl font-bold text-gray-900">Crédito Antecipado</h2>
-          <button class="btn-primary" onclick="openModal('modal-credito')">+ Novo Crédito</button>
-        </div>
-        <div class="card overflow-x-auto">
-          <table class="w-full">
-            <thead><tr class="text-left border-b border-gray-100">
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Data</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Cliente</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Valor Total</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Postos</th>
-              <th class="pb-2 text-xs text-gray-500 font-medium">Ação</th>
-            </tr></thead>
-            <tbody id="credito-body"></tbody>
-          </table>
-        </div>
+    <!-- CAIXAS -->
+    <div id="page-caixas" class="page">
+      <h2 style="font-size:20px;font-weight:700;color:#1e293b;margin-bottom:16px">Caixas</h2>
+      <div class="card" style="padding:12px;overflow:auto;max-height:calc(100vh - 160px)">
+        <table class="cx-table" id="tblCaixas"><thead></thead><tbody></tbody></table>
       </div>
-
-      <!-- ═══ CONSUMO ═══ -->
-      <div id="page-consumo" class="hidden">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-xl font-bold text-gray-900">Consumo</h2>
-          <button class="btn-primary" onclick="openModal('modal-consumo')">+ Registrar Consumo</button>
-        </div>
-        <div class="card overflow-x-auto">
-          <table class="w-full">
-            <thead><tr class="text-left border-b border-gray-100">
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Data/Hora</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Cliente</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Posto</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Valor</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Descrição</th>
-              <th class="pb-2 text-xs text-gray-500 font-medium">Ações</th>
-            </tr></thead>
-            <tbody id="consumo-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ═══ REPASSE ═══ -->
-      <div id="page-repasse" class="hidden">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-bold text-gray-900">Repasse entre Postos</h2>
-          <div class="flex gap-2">
-            <button class="btn-secondary" onclick="calcularRepasse()">🔄 Calcular posições</button>
-            <button class="btn-primary" onclick="openModal('modal-repasse')">+ Novo Repasse</button>
-          </div>
-        </div>
-
-        <h3 class="font-semibold text-gray-600 mb-3 text-xs uppercase tracking-wide">Posição líquida (saldo em carteira)</h3>
-        <div id="repasse-posicoes" class="grid md:grid-cols-3 gap-3 mb-5"></div>
-
-        <div id="repasse-sugestao" class="hidden card mb-5" style="border-color:#fbbf24;background:#fffbeb;">
-          <h3 class="font-semibold text-yellow-800 mb-3">💡 Sugestão de repasse gerada</h3>
-          <div id="repasse-sugestao-list" class="space-y-2"></div>
-          <button class="btn-green mt-4" onclick="confirmarSugestao()">✓ Confirmar e registrar</button>
-        </div>
-
-        <h3 class="font-semibold text-gray-600 mb-3 text-xs uppercase tracking-wide">Repasses registrados</h3>
-        <div class="card overflow-x-auto">
-          <table class="w-full">
-            <thead><tr class="text-left border-b border-gray-100">
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Data</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Origem</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Destino</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Valor</th>
-              <th class="pb-2 pr-3 text-xs text-gray-500 font-medium">Status</th>
-              <th class="pb-2 text-xs text-gray-500 font-medium">Ação</th>
-            </tr></thead>
-            <tbody id="repasse-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ═══ CAIXAS ═══ -->
-      <div id="page-caixas" class="hidden">
-        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <h2 class="text-xl font-bold text-gray-900">🗂️ Caixas</h2>
-          <div class="flex gap-2 items-center flex-wrap">
-            <label class="text-xs text-gray-500 font-medium">Início:</label>
-            <input type="date" id="caixas-inicio" class="input" style="max-width:150px" />
-            <button class="btn-secondary text-xs" onclick="loadCaixas()">↻ Atualizar</button>
-          </div>
-        </div>
-        <div class="card overflow-x-auto p-0">
-          <div id="caixas-table-wrap" style="overflow-x:auto">
-            <table id="caixas-table" class="w-full" style="border-collapse:collapse;min-width:500px">
-              <thead id="caixas-thead" style="background:#f8fafc;position:sticky;top:0;z-index:2"></thead>
-              <tbody id="caixas-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-        <p class="text-xs text-gray-400 mt-3">Clique no valor para editar • Clique na bolinha para marcar como conferido/recebido</p>
-      </div>
-
-    </main>
-  </div>
+    </div>
+  </main>
 </div>
 
-<!-- ══════════ MODAIS ══════════ -->
-
-<!-- Modal: Posto (novo/editar) -->
-<div id="modal-posto" class="modal-overlay hidden">
-  <div class="modal p-6">
-    <h3 class="font-bold text-gray-900 mb-4" id="modal-posto-titulo">Novo Posto</h3>
-    <input type="hidden" id="p-id" />
-    <div class="space-y-3">
-      <div><label class="label">Nome*</label><input id="p-nome" class="input" placeholder="Ex: Posto Parente Centro" /></div>
-      <div><label class="label">CNPJ</label><input id="p-cnpj" class="input" placeholder="00.000.000/0001-00" /></div>
-      <div><label class="label">Endereço</label><input id="p-end" class="input" placeholder="Rua, número, cidade" /></div>
-    </div>
-    <div class="flex gap-2 mt-5">
-      <button class="btn-primary flex-1" onclick="salvarPosto()">Salvar</button>
-      <button class="btn-secondary" onclick="closeModal('modal-posto')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Cliente (novo/editar) -->
-<div id="modal-cliente" class="modal-overlay hidden">
-  <div class="modal p-6">
-    <h3 class="font-bold text-gray-900 mb-4" id="modal-cliente-titulo">Novo Cliente</h3>
-    <input type="hidden" id="c-id" />
-    <div class="space-y-3">
-      <div><label class="label">Nome*</label><input id="c-nome" class="input" placeholder="Nome completo ou razão social" /></div>
-      <div><label class="label">CPF / CNPJ</label><input id="c-doc" class="input" placeholder="000.000.000-00" /></div>
-      <div><label class="label">Telefone</label><input id="c-tel" class="input" placeholder="(00) 00000-0000" /></div>
-      <div><label class="label">Email</label><input id="c-email" class="input" placeholder="email@exemplo.com" /></div>
-    </div>
-    <div class="flex gap-2 mt-5">
-      <button class="btn-primary flex-1" onclick="salvarCliente()">Salvar</button>
-      <button class="btn-secondary" onclick="closeModal('modal-cliente')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Crédito Antecipado -->
-<div id="modal-credito" class="modal-overlay hidden">
-  <div class="modal p-6">
-    <h3 class="font-bold text-gray-900 mb-4">Registrar Crédito Antecipado</h3>
-    <div class="space-y-3">
-      <div>
-        <label class="label">Cliente*</label>
-        <select id="cr-cliente" class="input"><option value="">Selecione o cliente...</option></select>
-      </div>
-      <div>
-        <label class="label">Valor Total (R$)*</label>
-        <input id="cr-valor" type="number" step="0.01" class="input" placeholder="0,00" oninput="distribuirCredito()" />
-      </div>
-      <div>
-        <label class="label">Distribuir entre postos (2 ou 3)*</label>
-        <p class="text-xs text-gray-500 mb-2">Selecione os postos e o valor de cada um. A soma deve igualar o total.</p>
-        <div id="cr-postos" class="space-y-2"></div>
-      </div>
-      <div><label class="label">Observação</label><input id="cr-obs" class="input" placeholder="Opcional" /></div>
-      <div id="cr-soma-alert" class="hidden text-xs text-red-600 font-medium">⚠️ Soma dos postos não confere com o valor total.</div>
-    </div>
-    <div class="flex gap-2 mt-5">
-      <button class="btn-primary flex-1" onclick="salvarCredito()">Salvar</button>
-      <button class="btn-secondary" onclick="closeModal('modal-credito')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Consumo -->
-<div id="modal-consumo" class="modal-overlay hidden">
-  <div class="modal p-6">
-    <h3 class="font-bold text-gray-900 mb-4">Registrar Consumo</h3>
-    <div class="space-y-3">
-      <div>
-        <label class="label">Cliente*</label>
-        <select id="co-cliente" class="input" onchange="carregarSaldoCliente()"><option value="">Selecione o cliente...</option></select>
-      </div>
-      <div id="co-saldo-info" class="hidden p-3 rounded-lg text-sm" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;"></div>
-      <div>
-        <label class="label">Posto*</label>
-        <select id="co-posto" class="input"><option value="">Selecione o posto...</option></select>
-      </div>
-      <div>
-        <label class="label">Valor (R$)*</label>
-        <input id="co-valor" type="number" step="0.01" class="input" placeholder="0,00" />
-      </div>
-      <div><label class="label">Descrição</label><input id="co-desc" class="input" placeholder="Ex: Abastecimento - gasolina comum" /></div>
-    </div>
-    <div class="flex gap-2 mt-5">
-      <button class="btn-primary flex-1" onclick="salvarConsumo()">Registrar</button>
-      <button class="btn-secondary" onclick="closeModal('modal-consumo')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Repasse -->
-<div id="modal-repasse" class="modal-overlay hidden">
-  <div class="modal p-6">
-    <h3 class="font-bold text-gray-900 mb-4">Registrar Repasse</h3>
-    <div class="space-y-3">
-      <div><label class="label">Posto Origem (paga)*</label><select id="re-origem" class="input"><option value="">Selecione...</option></select></div>
-      <div><label class="label">Posto Destino (recebe)*</label><select id="re-destino" class="input"><option value="">Selecione...</option></select></div>
-      <div><label class="label">Valor (R$)*</label><input id="re-valor" type="number" step="0.01" class="input" placeholder="0,00" /></div>
-      <div><label class="label">Data</label><input id="re-data" type="date" class="input" /></div>
-      <div><label class="label">Observação</label><input id="re-obs" class="input" placeholder="Opcional" /></div>
-    </div>
-    <div class="flex gap-2 mt-5">
-      <button class="btn-primary flex-1" onclick="salvarRepasse()">Salvar</button>
-      <button class="btn-secondary" onclick="closeModal('modal-repasse')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Conferir consumo -->
-<div id="modal-conferir" class="modal-overlay hidden">
-  <div class="modal p-6">
-    <h3 class="font-bold text-gray-900 mb-1">Conferir Recebimento</h3>
-    <p id="conf-info" class="text-sm text-gray-500 mb-4"></p>
-    <input type="hidden" id="conf-transacao-id" />
-    <div class="space-y-3">
-      <div>
-        <label class="label">Valor recebido em espécie (R$)*</label>
-        <input id="conf-valor" type="number" step="0.01" class="input" placeholder="0,00" />
-      </div>
-      <div>
-        <label class="label">Status</label>
-        <select id="conf-status" class="input">
-          <option value="conferido">✅ Conferido — valor correto</option>
-          <option value="divergente">⚠️ Divergente — valor diferente</option>
-        </select>
-      </div>
-      <div><label class="label">Observação</label><input id="conf-obs" class="input" placeholder="Opcional" /></div>
-    </div>
-    <div class="flex gap-2 mt-5">
-      <button class="btn-green flex-1" onclick="salvarConferencia()">Confirmar recebimento</button>
-      <button class="btn-secondary" onclick="closeModal('modal-conferir')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Confirm dialog -->
-<div id="modal-confirm" class="modal-overlay hidden">
-  <div class="modal p-6" style="max-width:360px">
-    <h3 class="font-bold text-gray-900 mb-2" id="confirm-title">Confirmar</h3>
-    <p class="text-sm text-gray-600 mb-5" id="confirm-msg"></p>
-    <div class="flex gap-2">
-      <button class="btn-red flex-1" id="confirm-ok">Confirmar</button>
-      <button class="btn-secondary flex-1" onclick="closeModal('modal-confirm')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div id="toast" class="hidden fixed bottom-4 right-4 px-4 py-3 rounded-xl text-white text-sm font-semibold shadow-xl z-[60] max-w-xs"></div>
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
 
 <script>
-const SUPA_URL = 'https://sfobjjjxjzupfbwevejj.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmb2Jqamp4anp1cGZid2V2ZWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4Mjg1OTIsImV4cCI6MjA5ODQwNDU5Mn0.WI0nxlHSz37e9o0avJrwfGTnCZ8EF5HDkxhQfxoIk4I';
-const { createClient } = supabase;
-const db = createClient(SUPA_URL, SUPA_KEY);
+// ═══════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ═══════════════════════════════════════════════════
+const SUPABASE_URL='https://sfobjjjxjzupfbwevejj.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmb2Jqamp4anp1cGZid2V2ZWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4Mjg1OTIsImV4cCI6MjA5ODQwNDU5Mn0.WI0nxlHSz37e9o0avJrwfGTnCZ8EF5HDkxhQfxoIk4I';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-let postos = [], clientes = [], sugestaoRepasse = [];
+// ═══════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════
+function money(v){return(Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function moneyShort(v){return(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtDate(d){if(!d)return'-';const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('pt-BR')}
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function toast(msg,type='success'){
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div');
+  t.className='toast toast-'+type;
+  t.textContent=msg;
+  c.appendChild(t);
+  setTimeout(()=>t.remove(),3500);
+}
 
-// ── Utils ──
-const fmt = v => {
-  const n = parseFloat(v||0);
-  return 'R$ ' + n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+// ═══════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════
+function checkSession(){
+  if(sessionStorage.getItem('loggedIn')){
+    document.getElementById('loginPage').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('app').style.flexDirection='column';
+    document.getElementById('userLabel').textContent=sessionStorage.getItem('userName')||'';
+    loadDashboard();
+  }
+}
+
+document.getElementById('loginBtn').onclick=async function(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  if(!u||!p){document.getElementById('loginError').style.display='block';return}
+  const{data,error}=await sb.from('usuarios').select('id,usuario,senha_hash,perfil,ativo').eq('usuario',u).eq('ativo',true).limit(1);
+  if(error||!data||data.length===0){document.getElementById('loginError').style.display='block';return}
+  const user=data[0];
+  const valid=await verifyPassword(p,user.senha_hash);
+  if(!valid){document.getElementById('loginError').style.display='block';return}
+  sessionStorage.setItem('loggedIn','true');
+  sessionStorage.setItem('userName',user.usuario);
+  sessionStorage.setItem('userPerfil',user.perfil);
+  sessionStorage.setItem('userId',user.id);
+  document.getElementById('loginError').style.display='none';
+  checkSession();
 };
-const fmtDate = s => s ? new Date(s+'T00:00:00').toLocaleDateString('pt-BR') : '—';
-const fmtDT   = s => s ? new Date(s).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '—';
+document.getElementById('loginPass').onkeydown=function(e){if(e.key==='Enter')document.getElementById('loginBtn').click()};
+document.getElementById('loginUser').onkeydown=function(e){if(e.key==='Enter')document.getElementById('loginPass').focus()};
 
-let toastTimer;
-function toast(msg, type='green') {
-  clearTimeout(toastTimer);
-  const el = document.getElementById('toast');
-  const colors = {green:'#16a34a',red:'#dc2626',blue:'#2563eb',yellow:'#d97706'};
-  el.textContent = msg;
-  el.style.background = colors[type]||colors.green;
-  el.classList.remove('hidden');
-  toastTimer = setTimeout(()=>el.classList.add('hidden'), 3000);
+async function verifyPassword(plain,hash){
+  if(plain===hash)return true;
+  const enc=new TextEncoder();
+  const buf=await crypto.subtle.digest('SHA-256',enc.encode(plain));
+  const hex=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  return hex===hash;
 }
 
-function showPage(name) {
-  document.querySelectorAll('[id^="page-"]').forEach(el=>el.classList.add('hidden'));
-  document.getElementById('page-'+name)?.classList.remove('hidden');
-  document.querySelectorAll('.nav-link[id^="nav-"]').forEach(el=>el.classList.remove('active-nav'));
-  document.getElementById('nav-'+name)?.classList.add('active-nav');
-  ({dashboard:loadDashboard,postos:loadPostos,clientes:loadClientes,
-    credito:loadCreditos,consumo:loadConsumos,repasse:loadRepasses,caixas:loadCaixas})[name]?.();
+function logout(){sessionStorage.clear();location.reload()}
+
+// ═══════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════
+let currentPage='dashboard';
+function navigate(page){
+  currentPage=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(n=>n.classList.remove('active-nav'));
+  const navBtn=document.querySelector(`.nav-link[data-page="${page}"]`);
+  if(navBtn)navBtn.classList.add('active-nav');
+  document.getElementById('sidebar').classList.remove('open');
+  switch(page){
+    case'dashboard':loadDashboard();break;
+    case'postos':loadPostos();break;
+    case'clientes':loadClientes();break;
+    case'creditos':loadCreditos();break;
+    case'consumo':loadConsumo();break;
+    case'repasses':loadRepasses();break;
+    case'caixas':loadCaixas();break;
+  }
+}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
+
+// ═══════════════════════════════════════════════════
+// CACHE
+// ═══════════════════════════════════════════════════
+let postosCache=[];
+let clientesCache=[];
+async function loadPostosCache(){
+  const{data}=await sb.from('postos').select('*').order('nome');
+  postosCache=data||[];
+  return postosCache;
+}
+async function loadClientesCache(){
+  const{data}=await sb.from('clientes').select('*').order('nome');
+  clientesCache=data||[];
+  return clientesCache;
 }
 
-function openModal(id) {
-  document.getElementById(id).classList.remove('hidden');
-  if(id==='modal-credito') preencherSelectsCr();
-  if(id==='modal-consumo') preencherSelectsCo();
-  if(id==='modal-repasse') { preencherSelectsRe(); document.getElementById('re-data').value=new Date().toISOString().slice(0,10); }
-}
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-function toggleMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
-
-function confirm2(title, msg, onOk) {
-  document.getElementById('confirm-title').textContent = title;
-  document.getElementById('confirm-msg').textContent = msg;
-  document.getElementById('confirm-ok').onclick = ()=>{ closeModal('modal-confirm'); onOk(); };
-  openModal('modal-confirm');
-}
-
-async function carregarBase() {
-  const [{ data: p },{ data: c }] = await Promise.all([
-    db.from('postos').select('*').eq('ativo',true).order('nome'),
-    db.from('clientes').select('*').eq('ativo',true).order('nome'),
+// ═══════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════
+async function loadDashboard(){
+  await loadPostosCache();
+  await loadClientesCache();
+  const[credRes,transRes,repRes,cpRes]=await Promise.all([
+    sb.from('creditos').select('valor_total'),
+    sb.from('transacoes').select('valor,posto_id'),
+    sb.from('repasses').select('valor,status,data_repasse,posto_origem_id,posto_destino_id').order('created_at',{ascending:false}).limit(10),
+    sb.from('credito_postos').select('posto_id,valor')
   ]);
-  postos = p||[]; clientes = c||[];
-}
+  const totalCredito=(credRes.data||[]).reduce((s,r)=>s+Number(r.valor_total),0);
+  const totalConsumo=(transRes.data||[]).reduce((s,r)=>s+Number(r.valor),0);
+  const saldoLiquido=totalCredito-totalConsumo;
+  const repassesPendentes=(repRes.data||[]).filter(r=>r.status==='pendente').length;
 
-// ═══ DASHBOARD ═══
-async function loadDashboard() {
-  await carregarBase();
+  document.getElementById('kpiCards').innerHTML=`
+    <div class="stat-card"><div class="stat-lbl">💰 Crédito Total</div><div class="stat-val" style="color:#16a34a">${money(totalCredito)}</div></div>
+    <div class="stat-card"><div class="stat-lbl">🔴 Consumo Total</div><div class="stat-val" style="color:#dc2626">${money(totalConsumo)}</div></div>
+    <div class="stat-card"><div class="stat-lbl">💼 Saldo Líquido</div><div class="stat-val" style="color:${saldoLiquido>=0?'#16a34a':'#dc2626'}">${money(saldoLiquido)}</div></div>
+    <div class="stat-card"><div class="stat-lbl">🔄 Repasses Pendentes</div><div class="stat-val" style="color:#d97706">${repassesPendentes}</div></div>
+  `;
 
-  // Crédito total
-  const { data: creds } = await db.from('creditos').select('valor_total');
-  const totalCredito = (creds||[]).reduce((a,b)=>a+parseFloat(b.valor_total||0),0);
+  const creditoPorPosto={};
+  (cpRes.data||[]).forEach(r=>{creditoPorPosto[r.posto_id]=(creditoPorPosto[r.posto_id]||0)+Number(r.valor)});
+  const consumoPorPosto={};
+  (transRes.data||[]).forEach(r=>{consumoPorPosto[r.posto_id]=(consumoPorPosto[r.posto_id]||0)+Number(r.valor)});
 
-  // Débito total (consumos)
-  const { data: trans } = await db.from('transacoes').select('valor,posto_id');
-  const totalDebito = (trans||[]).reduce((a,b)=>a+parseFloat(b.valor||0),0);
-
-  // Saldo líquido
-  const { data: saldos } = await db.from('saldos').select('saldo,posto_id');
-  const totalSaldo = (saldos||[]).reduce((a,b)=>a+parseFloat(b.saldo||0),0);
-
-  // Repasses pendentes
-  const { count: repPend } = await db.from('repasses').select('*',{count:'exact',head:true}).eq('status','pendente');
-
-  document.getElementById('dc-credito').textContent    = fmt(totalCredito);
-  document.getElementById('dc-debito').textContent     = fmt(totalDebito);
-  document.getElementById('dc-saldo-liq').textContent  = fmt(totalSaldo);
-  document.getElementById('dc-repasse').textContent    = repPend||0;
-
-  // Crédito por posto
-  const { data: credPostos } = await db.from('credito_postos').select('posto_id,valor');
-  const creditoPorPosto = {};
-  (credPostos||[]).forEach(cp=>{
-    creditoPorPosto[cp.posto_id] = (creditoPorPosto[cp.posto_id]||0)+parseFloat(cp.valor||0);
-  });
-
-  // Débito (consumo) por posto
-  const debitoPorPosto = {};
-  (trans||[]).forEach(t=>{
-    debitoPorPosto[t.posto_id] = (debitoPorPosto[t.posto_id]||0)+parseFloat(t.valor||0);
-  });
-
-  // Repasse por posto: saído - recebido (não cancelados)
-  const { data: repsAll } = await db.from('repasses').select('posto_origem_id,posto_destino_id,valor,status').neq('status','cancelado');
-  const repasseSaido = {}, repasRecebi = {};
-  (repsAll||[]).forEach(r=>{
-    repasseSaido[r.posto_origem_id]  = (repasseSaido[r.posto_origem_id]||0)  + parseFloat(r.valor||0);
-    repasRecebi[r.posto_destino_id]  = (repasRecebi[r.posto_destino_id]||0)   + parseFloat(r.valor||0);
-  });
-
-  const el = document.getElementById('dash-postos');
-  el.innerHTML = '';
-  for(const p of postos) {
-    const cred    = creditoPorPosto[p.id]||0;
-    const deb     = debitoPorPosto[p.id]||0;
-    const repSai  = repasseSaido[p.id]||0;
-    const repRec  = repasRecebi[p.id]||0;
-    const repLiq  = repSai - repRec;  // positivo = enviou mais; negativo = recebeu mais
-    const sald    = cred - deb - repLiq;
-    const saldColor = sald>0.01?'#16a34a':sald<-0.01?'#dc2626':'#6b7280';
-    const saldBg    = sald>0.01?'#f0fdf4':sald<-0.01?'#fef2f2':'#f8fafc';
-    // Repasse: quem enviou = negativo azul; quem recebeu = positivo azul
-    const repSign   = repLiq >= 0 ? '-' : '+';
-    const repDisplay = repSign + fmt(Math.abs(repLiq));
-    el.innerHTML += `
-      <div class="card" style="padding:0;overflow:hidden;border-left:4px solid ${saldColor}">
-        <div style="padding:16px 20px">
-          <div class="font-bold text-gray-800 mb-3 uppercase text-sm tracking-wide">${p.nome}</div>
-          <div class="flex justify-between text-sm mb-2">
-            <span class="text-gray-500">💰 Crédito</span>
-            <span class="font-semibold text-green-700">${fmt(cred)}</span>
-          </div>
-          <div class="flex justify-between text-sm mb-2">
-            <span class="text-gray-500">🔴 Consumo</span>
-            <span class="font-semibold text-red-600">${fmt(deb)}</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">🔵 Repasse</span>
-            <span class="font-semibold" style="color:#2563eb">${repLiq===0?fmt(0):repDisplay}</span>
-          </div>
-        </div>
-        <div style="background:${saldBg};border-top:2px solid ${saldColor}22;padding:12px 20px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:13px;font-weight:700;color:#374151">SALDO</span>
-          <span style="font-size:18px;font-weight:800;color:${saldColor}">${fmt(sald)}</span>
-        </div>
-      </div>`;
-  }
-  if(!postos.length) el.innerHTML='<p class="text-sm text-gray-400">Nenhum posto cadastrado.</p>';
-
-  // Últimos repasses
-  const { data: reps } = await db.from('repasses')
-    .select('*,postos!repasses_posto_origem_id_fkey(nome),dest:postos!repasses_posto_destino_id_fkey(nome)')
-    .order('created_at',{ascending:false}).limit(8);
-  const tbody = document.getElementById('dash-repasses-body');
-  tbody.innerHTML='';
-  (reps||[]).forEach(r=>{
-    const badge = r.status==='confirmado'?'badge-green':r.status==='cancelado'?'badge-red':'badge-yellow';
-    const label = r.status==='confirmado'?'Confirmado':r.status==='cancelado'?'Cancelado':'Pendente';
-    tbody.innerHTML += `<tr class="table-row">
-      <td class="pr-3 text-gray-400">${fmtDate(r.data_repasse)}</td>
-      <td class="pr-3">${r.postos?.nome||'—'}</td>
-      <td class="pr-3">${r.dest?.nome||'—'}</td>
-      <td class="pr-3 font-semibold">${fmt(r.valor)}</td>
-      <td><span class="${badge}">${label}</span></td>
-    </tr>`;
-  });
-  if(!(reps||[]).length) tbody.innerHTML='<tr><td colspan="5" class="py-4 text-center text-gray-400 text-xs">Nenhum repasse ainda</td></tr>';
-}
-
-// ═══ POSTOS ═══
-function abrirModalPosto(posto) {
-  document.getElementById('modal-posto-titulo').textContent = posto ? 'Editar Posto' : 'Novo Posto';
-  document.getElementById('p-id').value    = posto?.id||'';
-  document.getElementById('p-nome').value  = posto?.nome||'';
-  document.getElementById('p-cnpj').value  = posto?.cnpj||'';
-  document.getElementById('p-end').value   = posto?.endereco||'';
-  openModal('modal-posto');
-}
-
-async function salvarPosto() {
-  const nome = document.getElementById('p-nome').value.trim();
-  const id   = document.getElementById('p-id').value;
-  if(!nome) return toast('Informe o nome do posto','red');
-  const payload = { nome, cnpj:document.getElementById('p-cnpj').value||null, endereco:document.getElementById('p-end').value||null };
-  const { error } = id
-    ? await db.from('postos').update(payload).eq('id',id)
-    : await db.from('postos').insert(payload);
-  if(error) return toast('Erro: '+error.message,'red');
-  toast(id?'Posto atualizado!':'Posto cadastrado!');
-  closeModal('modal-posto');
-  loadPostos();
-}
-
-async function excluirPosto(id, nome) {
-  confirm2('Excluir Posto','Deseja desativar o posto "'+nome+'"? Os dados serão mantidos.', async()=>{
-    const { error } = await db.from('postos').update({ativo:false}).eq('id',id);
-    if(error) return toast('Erro: '+error.message,'red');
-    toast('Posto desativado!'); loadPostos();
-  });
-}
-
-async function loadPostos() {
-  await carregarBase();
-  const tbody = document.getElementById('postos-body');
-  tbody.innerHTML='';
-  postos.forEach(p=>{
-    tbody.innerHTML+=`<tr class="table-row">
-      <td class="pr-3 font-medium">${p.nome}</td>
-      <td class="pr-3 text-gray-400">${p.cnpj||'—'}</td>
-      <td class="pr-3 text-gray-400">${p.endereco||'—'}</td>
-      <td class="pr-3"><span class="badge-green">Ativo</span></td>
-      <td>
-        <button class="btn-icon" title="Editar" onclick='abrirModalPosto(${JSON.stringify(p)})'>✏️</button>
-        <button class="btn-icon" title="Excluir" onclick="excluirPosto('${p.id}','${p.nome.replace(/'/g,"\\'")}')">🗑️</button>
-      </td>
-    </tr>`;
-  });
-  if(!postos.length) tbody.innerHTML='<tr><td colspan="5" class="py-4 text-center text-gray-400 text-xs">Nenhum posto cadastrado</td></tr>';
-}
-
-// ═══ CLIENTES ═══
-function abrirModalCliente(c) {
-  document.getElementById('modal-cliente-titulo').textContent = c ? 'Editar Cliente' : 'Novo Cliente';
-  document.getElementById('c-id').value    = c?.id||'';
-  document.getElementById('c-nome').value  = c?.nome||'';
-  document.getElementById('c-doc').value   = c?.cpf_cnpj||'';
-  document.getElementById('c-tel').value   = c?.telefone||'';
-  document.getElementById('c-email').value = c?.email||'';
-  openModal('modal-cliente');
-}
-
-async function salvarCliente() {
-  const nome = document.getElementById('c-nome').value.trim();
-  const id   = document.getElementById('c-id').value;
-  if(!nome) return toast('Informe o nome do cliente','red');
-  const payload = { nome, cpf_cnpj:document.getElementById('c-doc').value||null, telefone:document.getElementById('c-tel').value||null, email:document.getElementById('c-email').value||null };
-  const { error } = id
-    ? await db.from('clientes').update(payload).eq('id',id)
-    : await db.from('clientes').insert(payload);
-  if(error) return toast('Erro: '+error.message,'red');
-  toast(id?'Cliente atualizado!':'Cliente cadastrado!');
-  closeModal('modal-cliente');
-  loadClientes();
-}
-
-async function excluirCliente(id, nome) {
-  confirm2('Excluir Cliente','Deseja desativar "'+nome+'"? O histórico será mantido.', async()=>{
-    const { error } = await db.from('clientes').update({ativo:false}).eq('id',id);
-    if(error) return toast('Erro: '+error.message,'red');
-    toast('Cliente desativado!'); loadClientes();
-  });
-}
-
-async function loadClientes() {
-  await carregarBase();
-  const { data: saldos } = await db.from('saldos').select('cliente_id,saldo');
-  renderClientes(clientes, saldos||[]);
-}
-
-function renderClientes(lista, saldos) {
-  const tbody = document.getElementById('clientes-body');
-  tbody.innerHTML='';
-  lista.forEach(c=>{
-    const total = saldos.filter(s=>s.cliente_id===c.id).reduce((a,b)=>a+parseFloat(b.saldo||0),0);
-    const saldColor = total>0?'#16a34a':total<0?'#dc2626':'#6b7280';
-    tbody.innerHTML+=`<tr class="table-row">
-      <td class="pr-3 font-medium">${c.nome}</td>
-      <td class="pr-3 text-gray-400">${c.cpf_cnpj||'—'}</td>
-      <td class="pr-3 text-gray-400">${c.telefone||'—'}</td>
-      <td class="pr-3 font-bold" style="color:${saldColor}">${fmt(total)}</td>
-      <td>
-        <button class="btn-icon" title="Editar" onclick='abrirModalCliente(${JSON.stringify(c)})'>✏️</button>
-        <button class="btn-icon" title="Excluir" onclick="excluirCliente('${c.id}','${c.nome.replace(/'/g,"\\'")}')">🗑️</button>
-      </td>
-    </tr>`;
-  });
-  if(!lista.length) tbody.innerHTML='<tr><td colspan="5" class="py-4 text-center text-gray-400 text-xs">Nenhum cliente encontrado</td></tr>';
-}
-
-function filtrarClientes() {
-  const q = document.getElementById('busca-cliente').value.toLowerCase();
-  db.from('saldos').select('cliente_id,saldo').then(({data:s})=>{
-    renderClientes(clientes.filter(c=>c.nome.toLowerCase().includes(q)||(c.cpf_cnpj||'').includes(q)), s||[]);
-  });
-}
-
-// ═══ CRÉDITO ═══
-function preencherSelectsCr() {
-  const sel = document.getElementById('cr-cliente');
-  sel.innerHTML='<option value="">Selecione o cliente...</option>';
-  clientes.forEach(c=>sel.innerHTML+=`<option value="${c.id}">${c.nome}</option>`);
-  const div = document.getElementById('cr-postos');
-  div.innerHTML='';
-  postos.forEach(p=>{
-    div.innerHTML+=`
-      <div class="pos-card flex items-center gap-3">
-        <input type="checkbox" id="chk-${p.id}" value="${p.id}" style="width:16px;height:16px;cursor:pointer" onchange="toggleValPosto('${p.id}')" />
-        <label for="chk-${p.id}" class="text-sm flex-1 cursor-pointer">${p.nome}</label>
-        <input type="number" id="val-${p.id}" class="input" style="width:110px;text-align:right" placeholder="R$ 0,00" step="0.01" oninput="atualizarSomaCredito()" disabled />
-      </div>`;
-  });
-}
-
-function toggleValPosto(id) {
-  const chk = document.getElementById('chk-'+id);
-  const inp = document.getElementById('val-'+id);
-  inp.disabled = !chk.checked;
-  if(!chk.checked) inp.value='';
-  atualizarSomaCredito();
-}
-
-function atualizarSomaCredito() {
-  const total = parseFloat(document.getElementById('cr-valor').value||0);
-  const sel = postos.filter(p=>document.getElementById('chk-'+p.id)?.checked);
-  const soma = sel.reduce((a,p)=>a+parseFloat(document.getElementById('val-'+p.id)?.value||0),0);
-  const al = document.getElementById('cr-soma-alert');
-  (total>0 && sel.length>=2 && Math.abs(total-soma)>0.01) ? al.classList.remove('hidden') : al.classList.add('hidden');
-}
-
-function distribuirCredito() {
-  const total = parseFloat(document.getElementById('cr-valor').value||0);
-  const sel = postos.filter(p=>document.getElementById('chk-'+p.id)?.checked);
-  if(sel.length>=2 && total>0) {
-    const por = (total/sel.length).toFixed(2);
-    sel.forEach(p=>{ document.getElementById('val-'+p.id).value=por; });
-    atualizarSomaCredito();
-  }
-}
-
-async function salvarCredito() {
-  const clienteId = document.getElementById('cr-cliente').value;
-  const total = parseFloat(document.getElementById('cr-valor').value||0);
-  const obs = document.getElementById('cr-obs').value;
-  if(!clienteId||total<=0) return toast('Preencha cliente e valor','red');
-  const sel = postos.filter(p=>document.getElementById('chk-'+p.id)?.checked);
-  if(sel.length<2) return toast('Selecione ao menos 2 postos','red');
-  const itens = sel.map(p=>({posto_id:p.id, valor:parseFloat(document.getElementById('val-'+p.id).value||0)}));
-  if(Math.abs(total-itens.reduce((a,b)=>a+b.valor,0))>0.01) return toast('Soma dos postos não confere','red');
-  const { data: cred, error } = await db.from('creditos').insert({cliente_id:clienteId,valor_total:total,observacao:obs||null}).select().single();
-  if(error) return toast('Erro: '+error.message,'red');
-  const { error: e2 } = await db.from('credito_postos').insert(itens.map(i=>({credito_id:cred.id,posto_id:i.posto_id,valor:i.valor})));
-  if(e2) return toast('Erro ao distribuir: '+e2.message,'red');
-  toast('Crédito registrado!'); closeModal('modal-credito'); loadCreditos();
-}
-
-async function excluirCredito(id) {
-  confirm2('Excluir Crédito','Isso reverterá os saldos distribuídos neste crédito. Confirmar?', async()=>{
-    // Primeiro excluir credito_postos (trigger reverso vai atualizar saldos)
-    await db.from('credito_postos').delete().eq('credito_id',id);
-    const { error } = await db.from('creditos').delete().eq('id',id);
-    if(error) return toast('Erro: '+error.message,'red');
-    toast('Crédito excluído!'); loadCreditos();
-  });
-}
-
-async function loadCreditos() {
-  await carregarBase();
-  const { data } = await db.from('creditos').select('*,clientes(nome),credito_postos(valor,postos(nome))').order('created_at',{ascending:false}).limit(50);
-  const tbody = document.getElementById('credito-body');
-  tbody.innerHTML='';
-  (data||[]).forEach(c=>{
-    const postosStr = (c.credito_postos||[]).map(cp=>`${cp.postos?.nome}: ${fmt(cp.valor)}`).join(' | ');
-    tbody.innerHTML+=`<tr class="table-row">
-      <td class="pr-3 text-gray-400">${fmtDate(c.created_at)}</td>
-      <td class="pr-3 font-medium">${c.clientes?.nome||'—'}</td>
-      <td class="pr-3 font-bold text-green-700">${fmt(c.valor_total)}</td>
-      <td class="pr-3 text-xs text-gray-500">${postosStr}</td>
-      <td><button class="btn-icon" title="Excluir" onclick="excluirCredito('${c.id}')">🗑️</button></td>
-    </tr>`;
-  });
-  if(!(data||[]).length) tbody.innerHTML='<tr><td colspan="5" class="py-4 text-center text-gray-400 text-xs">Nenhum crédito registrado</td></tr>';
-}
-
-// ═══ CONSUMO ═══
-function preencherSelectsCo() {
-  ['co-cliente','co-posto'].forEach(id=>{
-    document.getElementById(id).innerHTML = id==='co-cliente'?'<option value="">Selecione o cliente...</option>':'<option value="">Selecione o posto...</option>';
-  });
-  clientes.forEach(c=>document.getElementById('co-cliente').innerHTML+=`<option value="${c.id}">${c.nome}</option>`);
-  postos.forEach(p=>document.getElementById('co-posto').innerHTML+=`<option value="${p.id}">${p.nome}</option>`);
-}
-
-async function carregarSaldoCliente() {
-  const id = document.getElementById('co-cliente').value;
-  const el = document.getElementById('co-saldo-info');
-  if(!id){el.classList.add('hidden');return;}
-  const { data } = await db.from('saldos').select('saldo,postos(nome)').eq('cliente_id',id).gt('saldo',0);
-  el.innerHTML = data?.length
-    ? '<strong>Saldo disponível:</strong> ' + data.map(s=>`${s.postos?.nome}: ${fmt(s.saldo)}`).join(' | ')
-    : 'Sem saldo disponível neste cliente.';
-  el.classList.remove('hidden');
-}
-
-async function salvarConsumo() {
-  const clienteId = document.getElementById('co-cliente').value;
-  const postoId   = document.getElementById('co-posto').value;
-  const valor     = parseFloat(document.getElementById('co-valor').value||0);
-  const desc      = document.getElementById('co-desc').value;
-  if(!clienteId||!postoId||valor<=0) return toast('Preencha todos os campos obrigatórios','red');
-  const { data: saldo } = await db.from('saldos').select('saldo').eq('cliente_id',clienteId).eq('posto_id',postoId).maybeSingle();
-  if(!saldo||parseFloat(saldo.saldo)<valor) {
-    if(!window.confirm(`Saldo insuficiente neste posto (${fmt(saldo?.saldo||0)}). Registrar mesmo assim?`)) return;
-  }
-  const { error } = await db.from('transacoes').insert({cliente_id:clienteId,posto_id:postoId,valor,descricao:desc||null});
-  if(error) return toast('Erro: '+error.message,'red');
-  toast('Consumo registrado!');
-  closeModal('modal-consumo');
-  document.getElementById('co-valor').value='';
-  document.getElementById('co-desc').value='';
-  document.getElementById('co-saldo-info').classList.add('hidden');
-  loadConsumos();
-}
-
-async function excluirConsumo(id) {
-  confirm2('Excluir Consumo','O saldo será restaurado ao cliente. Confirmar exclusão?', async()=>{
-    const { error } = await db.from('transacoes').delete().eq('id',id);
-    if(error) return toast('Erro: '+error.message,'red');
-    toast('Consumo excluído e saldo restaurado!'); loadConsumos();
-  });
-}
-
-function abrirConferir(t) {
-  document.getElementById('conf-transacao-id').value = t.id;
-  document.getElementById('conf-info').textContent   = `Cliente: ${t.clientes?.nome||'—'} | Posto: ${t.postos?.nome||'—'} | Valor: ${fmt(t.valor)} | ${fmtDT(t.created_at)}`;
-  document.getElementById('conf-valor').value        = t.valor;
-  document.getElementById('conf-status').value       = 'conferido';
-  document.getElementById('conf-obs').value          = '';
-  openModal('modal-conferir');
-}
-
-async function salvarConferencia() {
-  const transacaoId = document.getElementById('conf-transacao-id').value;
-  const valor       = parseFloat(document.getElementById('conf-valor').value||0);
-  const status      = document.getElementById('conf-status').value;
-  const obs         = document.getElementById('conf-obs').value;
-  if(!transacaoId||valor<=0) return toast('Informe o valor recebido','red');
-
-  // Buscar dados da transação
-  const { data: t } = await db.from('transacoes').select('*,postos(nome)').eq('id',transacaoId).single();
-  if(!t) return toast('Transação não encontrada','red');
-
-  // Criar registro de conferência
-  const { error: e1 } = await db.from('conferencia_caixa').insert({
-    transacao_id: transacaoId,
-    posto_id: t.posto_id,
-    data_ref: t.created_at?.slice(0,10)||new Date().toISOString().slice(0,10),
-    valor_esperado: t.valor,
-    valor_recebido: valor,
-    status,
-    observacao: obs||null,
-    conferido_em: new Date().toISOString()
-  });
-  if(e1) return toast('Erro ao salvar conferência: '+e1.message,'red');
-
-  // Marcar transação como conferida
-  await db.from('transacoes').update({conferida:true}).eq('id',transacaoId);
-
-  toast(status==='conferido'?'✅ Recebimento conferido!':'⚠️ Divergência registrada!', status==='conferido'?'green':'yellow');
-  closeModal('modal-conferir');
-  loadConsumos();
-}
-
-async function loadConsumos() {
-  await carregarBase();
-  const { data } = await db.from('transacoes').select('*,clientes(nome),postos(nome)').order('created_at',{ascending:false}).limit(100);
-  const tbody = document.getElementById('consumo-body');
-  tbody.innerHTML='';
-  (data||[]).forEach(t=>{
-    const confBadge = t.conferida
-      ? '<span class="badge-green">Conferido</span>'
-      : `<button onclick='abrirConferir(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="btn-icon" title="Conferir recebimento" style="font-size:18px">✅</button>`;
-    tbody.innerHTML+=`<tr class="table-row">
-      <td class="pr-3 text-gray-400 text-xs">${fmtDT(t.created_at)}</td>
-      <td class="pr-3 font-medium">${t.clientes?.nome||'—'}</td>
-      <td class="pr-3">${t.postos?.nome||'—'}</td>
-      <td class="pr-3 font-bold text-red-600">${fmt(t.valor)}</td>
-      <td class="pr-3 text-xs text-gray-400">${t.descricao||'—'}</td>
-      <td class="flex items-center gap-1">
-        ${confBadge}
-        <button class="btn-icon" title="Excluir" onclick="excluirConsumo('${t.id}')">🗑️</button>
-      </td>
-    </tr>`;
-  });
-  if(!(data||[]).length) tbody.innerHTML='<tr><td colspan="6" class="py-4 text-center text-gray-400 text-xs">Nenhum consumo registrado</td></tr>';
-}
-
-// ═══ REPASSE ═══
-function preencherSelectsRe() {
-  ['re-origem','re-destino'].forEach(id=>{
-    document.getElementById(id).innerHTML='<option value="">Selecione...</option>';
-    postos.forEach(p=>document.getElementById(id).innerHTML+=`<option value="${p.id}">${p.nome}</option>`);
-  });
-}
-
-async function calcularRepasse() {
-  await carregarBase();
-  const { data: saldos } = await db.from('saldos').select('posto_id,saldo');
-  const pos = {};
-  postos.forEach(p=>pos[p.id]={nome:p.nome,saldo:0});
-  (saldos||[]).forEach(s=>{ if(pos[s.posto_id]) pos[s.posto_id].saldo+=parseFloat(s.saldo||0); });
-
-  const el = document.getElementById('repasse-posicoes');
-  el.innerHTML='';
-  Object.values(pos).forEach(p=>{
-    const bStyle = p.saldo>0.01?'border-color:#86efac;background:#f0fdf4':p.saldo<-0.01?'border-color:#fca5a5;background:#fef2f2':'border-color:#e5e7eb;background:#fff';
-    const badge  = p.saldo>0.01?'<span class="badge-green">Deve repassar</span>':p.saldo<-0.01?'<span class="badge-red">A receber</span>':'<span class="badge-gray">Zerado</span>';
-    const vColor = p.saldo>0?'#16a34a':p.saldo<0?'#dc2626':'#6b7280';
-    el.innerHTML+=`<div class="card" style="border:1px solid;${bStyle}">
-      <div class="font-semibold text-sm text-gray-800">${p.nome}</div>
-      <div class="text-xl font-bold mt-1" style="color:${vColor}">${fmt(p.saldo)}</div>
-      <div class="mt-2">${badge}</div>
+  const activePostos=postosCache.filter(p=>p.ativo);
+  document.getElementById('postoCards').innerHTML=activePostos.map(p=>{
+    const cred=creditoPorPosto[p.id]||0;
+    const cons=consumoPorPosto[p.id]||0;
+    const saldo=cred-cons;
+    return`<div class="pos-card">
+      <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px">${p.nome}</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280"><span>Crédito</span><span style="color:#16a34a;font-weight:600">${money(cred)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280"><span>Consumo</span><span style="color:#dc2626;font-weight:600">${money(cons)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;padding-top:4px;border-top:1px solid #e5e7eb"><span style="font-weight:700">Saldo</span><span style="font-weight:700;color:${saldo>=0?'#16a34a':'#dc2626'}">${money(saldo)}</span></div>
     </div>`;
-  });
+  }).join('');
 
-  const dev = Object.entries(pos).filter(([,v])=>v.saldo>0.01).map(([id,v])=>({id,nome:v.nome,valor:v.saldo}));
-  const cre = Object.entries(pos).filter(([,v])=>v.saldo<-0.01).map(([id,v])=>({id,nome:v.nome,valor:Math.abs(v.saldo)}));
-  if(!dev.length||!cre.length){ document.getElementById('repasse-sugestao').classList.add('hidden'); sugestaoRepasse=[]; toast('Posições calculadas!','blue'); return; }
-
-  sugestaoRepasse=[];
-  const d=dev.map(x=>({...x})), c=cre.map(x=>({...x}));
-  let di=0,ci=0;
-  while(di<d.length&&ci<c.length){
-    const val=Math.min(d[di].valor,c[ci].valor);
-    if(val>0.01) sugestaoRepasse.push({origem_id:d[di].id,origem:d[di].nome,destino_id:c[ci].id,destino:c[ci].nome,valor:val});
-    d[di].valor-=val; c[ci].valor-=val;
-    if(d[di].valor<0.01) di++;
-    if(c[ci].valor<0.01) ci++;
-  }
-  document.getElementById('repasse-sugestao-list').innerHTML=sugestaoRepasse.map(r=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:#fff;border-radius:8px;border:1px solid #fde68a;font-size:13px">
-      <span><strong>${r.origem}</strong> → <strong>${r.destino}</strong></span>
-      <span style="font-weight:700;color:#92400e">${fmt(r.valor)}</span>
-    </div>`).join('');
-  document.getElementById('repasse-sugestao').classList.remove('hidden');
-  toast('Posições calculadas!','blue');
+  const tbody=document.querySelector('#dashRepasses tbody');
+  tbody.innerHTML=(repRes.data||[]).slice(0,5).map(r=>{
+    const orig=postosCache.find(p=>p.id===r.posto_origem_id);
+    const dest=postosCache.find(p=>p.id===r.posto_destino_id);
+    const badge=r.status==='confirmado'?'badge-green':r.status==='pendente'?'badge-yellow':'badge-red';
+    return`<tr><td>${fmtDate(r.data_repasse)}</td><td>${orig?orig.nome:'-'}</td><td>${dest?dest.nome:'-'}</td><td style="font-weight:600">${money(r.valor)}</td><td><span class="${badge}">${r.status}</span></td></tr>`;
+  }).join('')||'<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Nenhum repasse registrado</td></tr>';
 }
 
-async function confirmarSugestao() {
-  if(!sugestaoRepasse.length) return;
-  const hoje=new Date().toISOString().slice(0,10);
-  const { error } = await db.from('repasses').insert(sugestaoRepasse.map(r=>({
-    posto_origem_id:r.origem_id,posto_destino_id:r.destino_id,
-    valor:parseFloat(r.valor.toFixed(2)),data_repasse:hoje,status:'pendente'
-  })));
-  if(error) return toast('Erro: '+error.message,'red');
-  toast('Repasses registrados!');
-  document.getElementById('repasse-sugestao').classList.add('hidden');
-  sugestaoRepasse=[];
-  loadRepasses();
+// ═══════════════════════════════════════════════════
+// POSTOS
+// ═══════════════════════════════════════════════════
+async function loadPostos(){
+  await loadPostosCache();
+  const tbody=document.querySelector('#tblPostos tbody');
+  tbody.innerHTML=postosCache.map(p=>`<tr>
+    <td style="font-weight:600">${p.nome}</td>
+    <td>${p.cnpj||'-'}</td>
+    <td>${p.endereco||'-'}</td>
+    <td><span class="${p.ativo?'badge-green':'badge-red'}">${p.ativo?'Ativo':'Inativo'}</span></td>
+    <td><button class="btn-icon" onclick="editPosto('${p.id}')">✏️</button><button class="btn-icon" onclick="deletePosto('${p.id}','${p.nome.replace(/'/g,"\\'")}')">🗑️</button></td>
+  </tr>`).join('');
 }
 
-async function salvarRepasse() {
-  const oId=document.getElementById('re-origem').value;
-  const dId=document.getElementById('re-destino').value;
-  const val=parseFloat(document.getElementById('re-valor').value||0);
-  const data=document.getElementById('re-data').value;
-  if(!oId||!dId||val<=0||!data) return toast('Preencha todos os campos','red');
-  if(oId===dId) return toast('Origem e destino devem ser diferentes','red');
-  const { error } = await db.from('repasses').insert({posto_origem_id:oId,posto_destino_id:dId,valor:val,data_repasse:data,observacao:document.getElementById('re-obs').value||null,status:'pendente'});
-  if(error) return toast('Erro: '+error.message,'red');
-  toast('Repasse registrado!'); closeModal('modal-repasse'); loadRepasses();
-}
-
-async function confirmarRepasse(id) {
-  const { error } = await db.from('repasses').update({status:'confirmado',confirmado_em:new Date().toISOString()}).eq('id',id);
-  if(error) return toast('Erro: '+error.message,'red');
-  toast('Repasse confirmado!'); loadRepasses();
-}
-
-async function excluirRepasse(id) {
-  confirm2('Excluir Repasse','Deseja excluir este repasse?', async()=>{
-    const { error } = await db.from('repasses').delete().eq('id',id);
-    if(error) return toast('Erro: '+error.message,'red');
-    toast('Repasse excluído!'); loadRepasses();
+function openPostoModal(posto=null){
+  const isEdit=!!posto;
+  showModal(`${isEdit?'Editar':'Novo'} Posto`,`
+    <div style="margin-bottom:12px"><label class="label">Nome *</label><input class="input" id="mdPostoNome" value="${posto?posto.nome:''}"/></div>
+    <div style="margin-bottom:12px"><label class="label">CNPJ</label><input class="input" id="mdPostoCnpj" value="${posto?posto.cnpj||'':''}"/></div>
+    <div style="margin-bottom:12px"><label class="label">Endereço</label><input class="input" id="mdPostoEnd" value="${posto?posto.endereco||'':''}"/></div>
+    <div><label class="label">Ativo</label><select class="input" id="mdPostoAtivo"><option value="true" ${!posto||posto.ativo?'selected':''}>Sim</option><option value="false" ${posto&&!posto.ativo?'selected':''}>Não</option></select></div>
+  `,async()=>{
+    const nome=document.getElementById('mdPostoNome').value.trim();
+    if(!nome){toast('Nome é obrigatório','error');return}
+    const obj={nome,cnpj:document.getElementById('mdPostoCnpj').value.trim()||null,endereco:document.getElementById('mdPostoEnd').value.trim()||null,ativo:document.getElementById('mdPostoAtivo').value==='true'};
+    if(isEdit){await sb.from('postos').update(obj).eq('id',posto.id)}
+    else{await sb.from('postos').insert(obj)}
+    closeModal();toast(isEdit?'Posto atualizado!':'Posto criado!');loadPostos();
   });
 }
+async function editPosto(id){const p=postosCache.find(x=>x.id===id);if(p)openPostoModal(p)}
+async function deletePosto(id,nome){
+  if(!confirm(`Excluir o posto "${nome}"?`))return;
+  await sb.from('postos').delete().eq('id',id);
+  toast('Posto excluído!');loadPostos();
+}
 
-async function loadRepasses() {
-  await carregarBase();
-  const { data } = await db.from('repasses')
-    .select('*,postos!repasses_posto_origem_id_fkey(nome),dest:postos!repasses_posto_destino_id_fkey(nome)')
-    .order('data_repasse',{ascending:false}).limit(100);
-  const tbody=document.getElementById('repasse-body');
-  tbody.innerHTML='';
-  (data||[]).forEach(r=>{
-    const badge=r.status==='confirmado'?'badge-green':r.status==='cancelado'?'badge-red':'badge-yellow';
-    const label=r.status==='confirmado'?'Confirmado':r.status==='cancelado'?'Cancelado':'Pendente';
-    const acoes = r.status==='pendente'
-      ? `<button onclick="confirmarRepasse('${r.id}')" class="btn-green" style="font-size:11px;padding:4px 8px">✓</button>
-         <button onclick="excluirRepasse('${r.id}')" class="btn-icon">🗑️</button>`
-      : `<button onclick="excluirRepasse('${r.id}')" class="btn-icon">🗑️</button>`;
-    tbody.innerHTML+=`<tr class="table-row">
-      <td class="pr-3 text-gray-400">${fmtDate(r.data_repasse)}</td>
-      <td class="pr-3">${r.postos?.nome||'—'}</td>
-      <td class="pr-3">${r.dest?.nome||'—'}</td>
-      <td class="pr-3 font-bold">${fmt(r.valor)}</td>
-      <td class="pr-3"><span class="${badge}">${label}</span></td>
-      <td class="flex items-center gap-1">${acoes}</td>
-    </tr>`;
+// ═══════════════════════════════════════════════════
+// CLIENTES
+// ═══════════════════════════════════════════════════
+async function loadClientes(){
+  const search=(document.getElementById('searchCliente').value||'').trim().toLowerCase();
+  await loadClientesCache();
+  let list=clientesCache;
+  if(search)list=list.filter(c=>c.nome.toLowerCase().includes(search));
+  const tbody=document.querySelector('#tblClientes tbody');
+  tbody.innerHTML=list.map(c=>`<tr>
+    <td style="font-weight:600">${c.nome}</td>
+    <td>${c.cpf_cnpj||'-'}</td>
+    <td>${c.telefone||'-'}</td>
+    <td>${c.email||'-'}</td>
+    <td><span class="${c.ativo?'badge-green':'badge-red'}">${c.ativo?'Ativo':'Inativo'}</span></td>
+    <td><button class="btn-icon" onclick="editCliente('${c.id}')">✏️</button><button class="btn-icon" onclick="deleteCliente('${c.id}','${c.nome.replace(/'/g,"\\'")}')">🗑️</button></td>
+  </tr>`).join('');
+}
+function openClienteModal(cli=null){
+  const isEdit=!!cli;
+  showModal(`${isEdit?'Editar':'Novo'} Cliente`,`
+    <div style="margin-bottom:12px"><label class="label">Nome *</label><input class="input" id="mdCliNome" value="${cli?cli.nome:''}"/></div>
+    <div style="margin-bottom:12px"><label class="label">CPF/CNPJ</label><input class="input" id="mdCliDoc" value="${cli?cli.cpf_cnpj||'':''}"/></div>
+    <div style="margin-bottom:12px"><label class="label">Telefone</label><input class="input" id="mdCliTel" value="${cli?cli.telefone||'':''}"/></div>
+    <div style="margin-bottom:12px"><label class="label">Email</label><input class="input" id="mdCliEmail" value="${cli?cli.email||'':''}"/></div>
+    <div><label class="label">Ativo</label><select class="input" id="mdCliAtivo"><option value="true" ${!cli||cli.ativo?'selected':''}>Sim</option><option value="false" ${cli&&!cli.ativo?'selected':''}>Não</option></select></div>
+  `,async()=>{
+    const nome=document.getElementById('mdCliNome').value.trim();
+    if(!nome){toast('Nome é obrigatório','error');return}
+    const obj={nome,cpf_cnpj:document.getElementById('mdCliDoc').value.trim()||null,telefone:document.getElementById('mdCliTel').value.trim()||null,email:document.getElementById('mdCliEmail').value.trim()||null,ativo:document.getElementById('mdCliAtivo').value==='true'};
+    if(isEdit){await sb.from('clientes').update(obj).eq('id',cli.id)}
+    else{await sb.from('clientes').insert(obj)}
+    closeModal();toast(isEdit?'Cliente atualizado!':'Cliente criado!');loadClientes();
   });
-  if(!(data||[]).length) tbody.innerHTML='<tr><td colspan="6" class="py-4 text-center text-gray-400 text-xs">Nenhum repasse registrado</td></tr>';
+}
+async function editCliente(id){const c=clientesCache.find(x=>x.id===id);if(c)openClienteModal(c)}
+async function deleteCliente(id,nome){
+  if(!confirm(`Excluir o cliente "${nome}"?`))return;
+  await sb.from('clientes').delete().eq('id',id);
+  toast('Cliente excluído!');loadClientes();
 }
 
-
-// ═══ CAIXAS ═══
-function fmtBRL(v) {
-  if (v === null || v === undefined || v === '') return '';
-  return parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+// ═══════════════════════════════════════════════════
+// CREDITOS
+// ═══════════════════════════════════════════════════
+async function loadCreditos(){
+  await loadPostosCache();
+  await loadClientesCache();
+  const{data:creditos}=await sb.from('creditos').select('*').order('created_at',{ascending:false});
+  const{data:cp}=await sb.from('credito_postos').select('*');
+  const tbody=document.querySelector('#tblCreditos tbody');
+  tbody.innerHTML=(creditos||[]).map(c=>{
+    const cli=clientesCache.find(x=>x.id===c.cliente_id);
+    const dist=(cp||[]).filter(x=>x.credito_id===c.id).map(x=>{
+      const p=postosCache.find(pp=>pp.id===x.posto_id);
+      return`${p?p.nome:'?'}: ${money(x.valor)}`;
+    }).join(', ');
+    return`<tr><td>${fmtDate(c.created_at?.slice(0,10))}</td><td>${cli?cli.nome:'-'}</td><td style="font-weight:600;color:#16a34a">${money(c.valor_total)}</td><td style="font-size:11px">${dist||'-'}</td><td>${c.observacao||'-'}</td></tr>`;
+  }).join('')||'<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Nenhum crédito registrado</td></tr>';
 }
-function parseBRL(s) {
-  if (!s || s.trim() === '' || s.trim() === '—') return null;
-  // accept "1.234,56" or "1234,56" or "1234.56"
-  let cleaned = s.replace(/[R$\s]/g, '').trim();
-  // if has dot and comma, dot is thousands separator
-  if (cleaned.includes(',') && cleaned.includes('.')) {
-    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-  } else if (cleaned.includes(',')) {
-    cleaned = cleaned.replace(',', '.');
-  }
-  const n = parseFloat(cleaned);
-  return isNaN(n) ? null : n;
+function openCreditoModal(){
+  const postosOpts=postosCache.filter(p=>p.ativo).map(p=>`<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:13px"><input type="checkbox" class="ckPosto" value="${p.id}" checked/>${p.nome}</label>`).join('');
+  const clienteOpts=clientesCache.filter(c=>c.ativo).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  showModal('Novo Crédito Antecipado',`
+    <div style="margin-bottom:12px"><label class="label">Cliente *</label><select class="input" id="mdCredCliente"><option value="">Selecione...</option>${clienteOpts}</select></div>
+    <div style="margin-bottom:12px"><label class="label">Valor Total (R$) *</label><input class="input" id="mdCredValor" placeholder="0,00"/></div>
+    <div style="margin-bottom:12px"><label class="label">Observação</label><input class="input" id="mdCredObs"/></div>
+    <div><label class="label">Distribuir entre os postos:</label><div style="max-height:150px;overflow-y:auto;padding:8px;border:1px solid #e5e7eb;border-radius:8px">${postosOpts}</div></div>
+  `,async()=>{
+    const cliente_id=document.getElementById('mdCredCliente').value;
+    const valorStr=document.getElementById('mdCredValor').value.replace(/\./g,'').replace(',','.');
+    const valor_total=parseFloat(valorStr);
+    if(!cliente_id||!valor_total||valor_total<=0){toast('Preencha cliente e valor','error');return}
+    const obs=document.getElementById('mdCredObs').value.trim()||null;
+    const checked=[...document.querySelectorAll('.ckPosto:checked')].map(c=>c.value);
+    if(checked.length===0){toast('Selecione ao menos um posto','error');return}
+    const valorPorPosto=Math.round((valor_total/checked.length)*100)/100;
+    const{data:cred,error}=await sb.from('creditos').insert({cliente_id,valor_total,observacao:obs}).select().single();
+    if(error){toast('Erro ao criar crédito','error');return}
+    const rows=checked.map(posto_id=>({credito_id:cred.id,posto_id,valor:valorPorPosto}));
+    await sb.from('credito_postos').insert(rows);
+    closeModal();toast('Crédito registrado!');loadCreditos();
+  });
 }
 
-async function loadCaixas() {
-  await carregarBase();
-  const inicioEl = document.getElementById('caixas-inicio');
-  if (!inicioEl.value) {
-    // default: 29/06/2026
-    inicioEl.value = '2026-06-29';
+// ═══════════════════════════════════════════════════
+// CONSUMO
+// ═══════════════════════════════════════════════════
+async function loadConsumo(){
+  await loadPostosCache();
+  await loadClientesCache();
+  const{data}=await sb.from('transacoes').select('*').order('created_at',{ascending:false}).limit(100);
+  const tbody=document.querySelector('#tblConsumo tbody');
+  tbody.innerHTML=(data||[]).map(t=>{
+    const cli=clientesCache.find(c=>c.id===t.cliente_id);
+    const pos=postosCache.find(p=>p.id===t.posto_id);
+    return`<tr><td>${fmtDate(t.created_at?.slice(0,10))}</td><td>${cli?cli.nome:'-'}</td><td>${pos?pos.nome:'-'}</td><td style="font-weight:600;color:#dc2626">${money(t.valor)}</td><td>${t.descricao||'-'}</td><td><button class="btn-icon" onclick="deleteConsumo('${t.id}')">🗑️</button></td></tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">Nenhum consumo registrado</td></tr>';
+}
+function openConsumoModal(){
+  const postosOpts=postosCache.filter(p=>p.ativo).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  const clienteOpts=clientesCache.filter(c=>c.ativo).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  showModal('Registrar Consumo',`
+    <div style="margin-bottom:12px"><label class="label">Cliente *</label><select class="input" id="mdConsCliente"><option value="">Selecione...</option>${clienteOpts}</select></div>
+    <div style="margin-bottom:12px"><label class="label">Posto *</label><select class="input" id="mdConsPosto"><option value="">Selecione...</option>${postosOpts}</select></div>
+    <div style="margin-bottom:12px"><label class="label">Valor (R$) *</label><input class="input" id="mdConsValor" placeholder="0,00"/></div>
+    <div><label class="label">Descrição</label><input class="input" id="mdConsDesc"/></div>
+  `,async()=>{
+    const cliente_id=document.getElementById('mdConsCliente').value;
+    const posto_id=document.getElementById('mdConsPosto').value;
+    const valorStr=document.getElementById('mdConsValor').value.replace(/\./g,'').replace(',','.');
+    const valor=parseFloat(valorStr);
+    if(!cliente_id||!posto_id||!valor||valor<=0){toast('Preencha todos os campos obrigatórios','error');return}
+    const descricao=document.getElementById('mdConsDesc').value.trim()||null;
+    const{error}=await sb.from('transacoes').insert({cliente_id,posto_id,valor,descricao});
+    if(error){toast('Erro ao registrar consumo','error');return}
+    closeModal();toast('Consumo registrado!');loadConsumo();
+  });
+}
+async function deleteConsumo(id){
+  if(!confirm('Excluir este consumo?'))return;
+  await sb.from('transacoes').delete().eq('id',id);
+  toast('Consumo excluído!');loadConsumo();
+}
+
+// ═══════════════════════════════════════════════════
+// REPASSES
+// ═══════════════════════════════════════════════════
+async function loadRepasses(){
+  await loadPostosCache();
+  const{data:cp}=await sb.from('credito_postos').select('posto_id,valor');
+  const{data:trans}=await sb.from('transacoes').select('posto_id,valor');
+  const creditoPorPosto={};
+  (cp||[]).forEach(r=>{creditoPorPosto[r.posto_id]=(creditoPorPosto[r.posto_id]||0)+Number(r.valor)});
+  const consumoPorPosto={};
+  (trans||[]).forEach(r=>{consumoPorPosto[r.posto_id]=(consumoPorPosto[r.posto_id]||0)+Number(r.valor)});
+
+  const activePostos=postosCache.filter(p=>p.ativo);
+  document.getElementById('posicaoLiquida').innerHTML=activePostos.map(p=>{
+    const cred=creditoPorPosto[p.id]||0;
+    const cons=consumoPorPosto[p.id]||0;
+    const saldo=cred-cons;
+    return`<div class="pos-card">
+      <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px">${p.nome}</div>
+      <div style="font-size:11px;color:#6b7280">Crédito: <span style="color:#16a34a">${money(cred)}</span></div>
+      <div style="font-size:11px;color:#6b7280">Consumo: <span style="color:#dc2626">${money(cons)}</span></div>
+      <div style="font-size:13px;font-weight:700;margin-top:4px;color:${saldo>=0?'#16a34a':'#dc2626'}">Posição: ${money(saldo)}</div>
+    </div>`;
+  }).join('');
+
+  const{data:repasses}=await sb.from('repasses').select('*').order('created_at',{ascending:false}).limit(50);
+  const tbody=document.querySelector('#tblRepasses tbody');
+  tbody.innerHTML=(repasses||[]).map(r=>{
+    const orig=postosCache.find(p=>p.id===r.posto_origem_id);
+    const dest=postosCache.find(p=>p.id===r.posto_destino_id);
+    const badge=r.status==='confirmado'?'badge-green':r.status==='pendente'?'badge-yellow':'badge-red';
+    let acoes='';
+    if(r.status==='pendente')acoes=`<button class="btn-green btn-sm" onclick="confirmarRepasse('${r.id}')">✓</button> <button class="btn-red btn-sm" onclick="cancelarRepasse('${r.id}')">✗</button>`;
+    return`<tr><td>${fmtDate(r.data_repasse)}</td><td>${orig?orig.nome:'-'}</td><td>${dest?dest.nome:'-'}</td><td style="font-weight:600">${money(r.valor)}</td><td><span class="${badge}">${r.status}</span></td><td style="font-size:11px">${r.observacao||'-'}</td><td>${acoes}</td></tr>`;
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Nenhum repasse registrado</td></tr>';
+}
+
+async function calcularRepasse(){
+  await loadPostosCache();
+  const{data:cp}=await sb.from('credito_postos').select('posto_id,valor');
+  const{data:trans}=await sb.from('transacoes').select('posto_id,valor');
+  const creditoPorPosto={};
+  (cp||[]).forEach(r=>{creditoPorPosto[r.posto_id]=(creditoPorPosto[r.posto_id]||0)+Number(r.valor)});
+  const consumoPorPosto={};
+  (trans||[]).forEach(r=>{consumoPorPosto[r.posto_id]=(consumoPorPosto[r.posto_id]||0)+Number(r.valor)});
+
+  const activePostos=postosCache.filter(p=>p.ativo);
+  const posicoes=activePostos.map(p=>({id:p.id,nome:p.nome,saldo:(creditoPorPosto[p.id]||0)-(consumoPorPosto[p.id]||0)}));
+  const positivos=posicoes.filter(p=>p.saldo>0.01).sort((a,b)=>b.saldo-a.saldo);
+  const negativos=posicoes.filter(p=>p.saldo<-0.01).sort((a,b)=>a.saldo-b.saldo);
+
+  if(positivos.length===0&&negativos.length===0){
+    document.getElementById('sugestaoRepasse').style.display='block';
+    document.getElementById('sugestaoRepasse').innerHTML='<div class="card" style="border-left:4px solid #16a34a"><p style="font-size:13px;color:#374151;padding:4px">✅ Todos os postos estão equilibrados. Nenhum repasse necessário.</p></div>';
+    return;
   }
-  const inicio = new Date(inicioEl.value + 'T00:00:00');
-  const hoje = new Date();
-  hoje.setHours(0,0,0,0);
 
-  // Build list of dates from inicio to today
-  const datas = [];
-  for (let d = new Date(hoje); d >= inicio; d.setDate(d.getDate()-1)) {
-    datas.push(new Date(d).toISOString().slice(0,10));
+  const sugestoes=[];
+  let pi=0,ni=0;
+  const pos=[...positivos.map(p=>({...p}))];
+  const neg=[...negativos.map(p=>({...p,saldo:Math.abs(p.saldo)}))];
+  while(pi<pos.length&&ni<neg.length){
+    const val=Math.min(pos[pi].saldo,neg[ni].saldo);
+    if(val>0.01)sugestoes.push({origem:pos[pi],destino:neg[ni],valor:val});
+    pos[pi].saldo-=val;
+    neg[ni].saldo-=val;
+    if(pos[pi].saldo<0.01)pi++;
+    if(neg[ni].saldo<0.01)ni++;
   }
 
-  // Load existing caixas data
-  const dataMin = datas[datas.length-1];
-  const { data: rows } = await db.from('caixas').select('*').gte('data', dataMin);
-  const mapa = {};
-  (rows||[]).forEach(r => { mapa[r.posto_id+'|'+r.data] = r; });
+  document.getElementById('sugestaoRepasse').style.display='block';
+  document.getElementById('sugestaoRepasse').innerHTML=`<div class="card" style="border-left:4px solid #2563eb">
+    <h4 style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px">⚡ Sugestão de Repasse</h4>
+    <div class="overflow-x"><table><thead><tr><th>De (superávit)</th><th>Para (déficit)</th><th>Valor</th><th>Ação</th></tr></thead><tbody>
+    ${sugestoes.map(s=>`<tr><td>${s.origem.nome}</td><td>${s.destino.nome}</td><td style="font-weight:600">${money(s.valor)}</td><td><button class="btn-primary btn-sm" onclick="executarRepasse('${s.origem.id}','${s.destino.id}',${s.valor})">Registrar</button></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
+}
 
-  // Build header
-  const thead = document.getElementById('caixas-thead');
-  thead.innerHTML = '<tr><th class="cx-head" style="position:sticky;left:0;z-index:3;background:#f8fafc">Data</th>' +
-    postos.map(p => `<th class="cx-head">${p.nome}</th>`).join('') + '</tr>';
+async function executarRepasse(origem_id,destino_id,valor){
+  const{error}=await sb.from('repasses').insert({posto_origem_id:origem_id,posto_destino_id:destino_id,valor,status:'pendente'});
+  if(error){toast('Erro ao registrar repasse','error');return}
+  toast('Repasse registrado!');loadRepasses();
+}
 
-  // Build body
-  const tbody = document.getElementById('caixas-tbody');
-  tbody.innerHTML = '';
-  datas.forEach(data => {
-    const tr = document.createElement('tr');
-    const dtLabel = new Date(data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',weekday:'short'});
-    const isHoje = data === hoje.toISOString().slice(0,10);
-    tr.innerHTML = `<td class="cx-date"${isHoje?' style="color:#2563eb"':''}>
-      ${isHoje ? '<strong>'+dtLabel+'</strong>' : dtLabel}
-    </td>`;
-    postos.forEach(p => {
-      const reg = mapa[p.id+'|'+data];
-      const val = reg?.valor != null ? reg.valor : null;
-      const ok  = reg?.conferido ? 'ok' : '';
-      const rid = reg?.id || '';
-      const displayVal = fmtBRL(val);
-      const confClass = ok ? ' conferido' : '';
-      const td = document.createElement('td');
-      td.className = 'cx-cell';
-      td.innerHTML = `<div class="cx-inner">
+function openRepasseModal(){
+  const postosOpts=postosCache.filter(p=>p.ativo).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  showModal('Novo Repasse',`
+    <div style="margin-bottom:12px"><label class="label">Posto Origem *</label><select class="input" id="mdRepOrigem"><option value="">Selecione...</option>${postosOpts}</select></div>
+    <div style="margin-bottom:12px"><label class="label">Posto Destino *</label><select class="input" id="mdRepDestino"><option value="">Selecione...</option>${postosOpts}</select></div>
+    <div style="margin-bottom:12px"><label class="label">Valor (R$) *</label><input class="input" id="mdRepValor" placeholder="0,00"/></div>
+    <div><label class="label">Observação</label><input class="input" id="mdRepObs"/></div>
+  `,async()=>{
+    const posto_origem_id=document.getElementById('mdRepOrigem').value;
+    const posto_destino_id=document.getElementById('mdRepDestino').value;
+    const valorStr=document.getElementById('mdRepValor').value.replace(/\./g,'').replace(',','.');
+    const valor=parseFloat(valorStr);
+    if(!posto_origem_id||!posto_destino_id||!valor||valor<=0){toast('Preencha todos os campos','error');return}
+    if(posto_origem_id===posto_destino_id){toast('Origem e destino devem ser diferentes','error');return}
+    const observacao=document.getElementById('mdRepObs').value.trim()||null;
+    const{error}=await sb.from('repasses').insert({posto_origem_id,posto_destino_id,valor,observacao,status:'pendente'});
+    if(error){toast('Erro ao registrar','error');return}
+    closeModal();toast('Repasse registrado!');loadRepasses();
+  });
+}
+
+async function confirmarRepasse(id){
+  await sb.from('repasses').update({status:'confirmado',confirmado_em:new Date().toISOString()}).eq('id',id);
+  toast('Repasse confirmado!');loadRepasses();
+}
+async function cancelarRepasse(id){
+  if(!confirm('Cancelar este repasse?'))return;
+  await sb.from('repasses').update({status:'cancelado'}).eq('id',id);
+  toast('Repasse cancelado');loadRepasses();
+}
+
+// ═══════════════════════════════════════════════════
+// CAIXAS
+// ═══════════════════════════════════════════════════
+async function loadCaixas(){
+  await loadPostosCache();
+  const activePostos=postosCache.filter(p=>p.ativo).sort((a,b)=>a.nome.localeCompare(b.nome));
+  
+  // Gerar datas de hoje até 29/06/2026
+  const startDate=new Date('2026-06-29');
+  const endDate=new Date();
+  const dates=[];
+  for(let d=new Date(endDate);d>=startDate;d.setDate(d.getDate()-1)){
+    dates.push(d.toISOString().slice(0,10));
+  }
+  if(dates.length===0)dates.push(todayStr());
+
+  // Buscar dados existentes
+  const{data:caixasData}=await sb.from('caixas').select('*');
+  const caixasMap={};
+  (caixasData||[]).forEach(c=>{caixasMap[c.posto_id+'_'+c.data]=c});
+
+  const tdy=todayStr();
+  const thead=document.querySelector('#tblCaixas thead');
+  thead.innerHTML=`<tr><th class="cx-head" style="position:sticky;left:0;z-index:3;background:#f8fafc">Data</th>${activePostos.map(p=>`<th class="cx-head">${p.nome.replace('POSTO ','')}</th>`).join('')}</tr>`;
+
+  const tbody=document.querySelector('#tblCaixas tbody');
+  tbody.innerHTML=dates.map(dt=>{
+    const isToday=dt===tdy;
+    const dateClass=isToday?'cx-date cx-date-today':'cx-date';
+    const cells=activePostos.map(p=>{
+      const key=p.id+'_'+dt;
+      const cx=caixasMap[key];
+      const val=cx&&cx.valor?moneyShort(cx.valor):'';
+      const conf=cx&&cx.conferido;
+      return`<td class="cx-cell"><div class="cx-inner">
         <span class="cx-prefix">R$</span>
-        <input type="text" inputmode="decimal" class="cx-val${confClass}"
-          value="${displayVal}"
-          placeholder="0,00"
-          data-posto="${p.id}" data-data="${data}" data-rid="${rid}"
-          onfocus="this.select()"
-          onblur="salvarCaixaValor(this)"
-          onkeydown="if(event.key==='Enter'){this.blur()}"
-        />
-        <div class="cx-circle ${ok}" title="${ok?'Conferido — clique para desmarcar':'Clique para marcar como conferido'}"
-          data-posto="${p.id}" data-data="${data}" data-rid="${rid}"
-          onclick="toggleCaixaOk(this)">
-        </div>
-      </div>`;
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
+        <input class="cx-val${conf?' conferido':''}" data-posto="${p.id}" data-data="${dt}" data-id="${cx?cx.id:''}" value="${val}" onblur="saveCaixa(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
+        <div class="cx-check${conf?' checked':''}" onclick="toggleConferido(this)" data-posto="${p.id}" data-data="${dt}">${conf?'✓':''}</div>
+      </div></td>`;
+    }).join('');
+    return`<tr><td class="${dateClass}">${fmtDate(dt)}</td>${cells}</tr>`;
+  }).join('');
 }
 
-async function salvarCaixaValor(input) {
-  const postoId = input.dataset.posto;
-  const data    = input.dataset.data;
-  const typed   = input.value.trim();
-  const valor   = parseBRL(typed);
-
-  // reformat display
-  input.value = fmtBRL(valor) || '';
-
-  if (valor === null && !input.dataset.rid) return; // nada a salvar
-
-  let rid = input.dataset.rid;
-  if (rid) {
-    await db.from('caixas').update({ valor }).eq('id', rid);
-  } else {
-    if (valor === null) return;
-    const { data: ins } = await db.from('caixas').insert({ posto_id:postoId, data, valor }).select().single();
-    rid = ins?.id || '';
-    input.dataset.rid = rid;
-    const circle = input.closest('.cx-inner').querySelector('.cx-circle');
-    if (circle) circle.dataset.rid = rid;
+async function saveCaixa(el){
+  const posto_id=el.dataset.posto;
+  const data=el.dataset.data;
+  const rawVal=el.value.replace(/\./g,'').replace(',','.');
+  const valor=parseFloat(rawVal)||0;
+  
+  // Format display
+  if(valor>0)el.value=moneyShort(valor);
+  else el.value='';
+  
+  if(el.dataset.id){
+    await sb.from('caixas').update({valor}).eq('id',el.dataset.id);
+  }else if(valor>0){
+    const{data:newRow}=await sb.from('caixas').insert({posto_id,data,valor,conferido:false}).select().single();
+    if(newRow)el.dataset.id=newRow.id;
   }
 }
 
-async function toggleCaixaOk(circle) {
-  const postoId = circle.dataset.posto;
-  const data    = circle.dataset.data;
-  let rid       = circle.dataset.rid;
-  const novoOk  = !circle.classList.contains('ok');
-
-  if (!rid) {
-    // need to create record first
-    const { data: ins } = await db.from('caixas').insert({
-      posto_id: postoId, data, conferido: novoOk, conferido_em: novoOk ? new Date().toISOString() : null
-    }).select().single();
-    rid = ins?.id || '';
-    circle.dataset.rid = rid;
-    const inp = circle.closest('.cx-inner').querySelector('.cx-val');
-    if (inp) inp.dataset.rid = rid;
-  } else {
-    await db.from('caixas').update({
-      conferido: novoOk,
-      conferido_em: novoOk ? new Date().toISOString() : null
-    }).eq('id', rid);
-  }
-
-  circle.classList.toggle('ok', novoOk);
-  circle.title = novoOk ? 'Conferido — clique para desmarcar' : 'Clique para marcar como conferido';
-  // change input color: green = conferido, red = pendente
-  const inp = circle.closest('.cx-inner')?.querySelector('.cx-val');
-  if (inp) inp.classList.toggle('conferido', novoOk);
-  toast(novoOk ? '✓ Marcado como conferido' : 'Desmarcado', novoOk ? 'green' : 'yellow');
-}
-
-// ── AUTH ──
-const _CRED = {u:'controle',s:'parente01'};
-function fazerLogin() {
-  const u=document.getElementById('login-user').value.trim();
-  const s=document.getElementById('login-pass').value;
-  if(u===_CRED.u && s===_CRED.s) {
-    sessionStorage.setItem('auth','1');
-    document.getElementById('login-screen').remove();
-    carregarBase().then(()=>showPage('dashboard'));
-  } else {
-    document.getElementById('login-error').style.display='block';
-    document.getElementById('login-pass').value='';
+async function toggleConferido(el){
+  const posto_id=el.dataset.posto;
+  const data=el.dataset.data;
+  const input=el.previousElementSibling;
+  const isChecked=el.classList.contains('checked');
+  
+  if(!input.dataset.id){
+    const rawVal=input.value.replace(/\./g,'').replace(',','.');
+    const valor=parseFloat(rawVal)||0;
+    if(valor===0){toast('Insira um valor primeiro','error');return}
+    const{data:newRow}=await sb.from('caixas').insert({posto_id,data,valor,conferido:true,conferido_em:new Date().toISOString()}).select().single();
+    if(newRow){
+      input.dataset.id=newRow.id;
+      el.classList.add('checked');
+      el.textContent='✓';
+      input.classList.add('conferido');
+    }
+  }else{
+    const newStatus=!isChecked;
+    await sb.from('caixas').update({conferido:newStatus,conferido_em:newStatus?new Date().toISOString():null}).eq('id',input.dataset.id);
+    if(newStatus){
+      el.classList.add('checked');
+      el.textContent='✓';
+      input.classList.add('conferido');
+    }else{
+      el.classList.remove('checked');
+      el.textContent='';
+      input.classList.remove('conferido');
+    }
   }
 }
-function fazerLogout() { sessionStorage.removeItem('auth'); location.reload(); }
-// Check session on load
-if(sessionStorage.getItem('auth')==='1') {
-  document.addEventListener('DOMContentLoaded',()=>{
-    const ls=document.getElementById('login-screen');
-    if(ls) ls.remove();
-    carregarBase().then(()=>showPage('dashboard'));
-  });
+
+// ═══════════════════════════════════════════════════
+// MODAL SYSTEM
+// ═══════════════════════════════════════════════════
+function showModal(title,bodyHtml,onSave){
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.id='modalOverlay';
+  overlay.onclick=function(e){if(e.target===overlay)closeModal()};
+  overlay.innerHTML=`<div class="modal">
+    <div class="modal-header"><h3>${title}</h3><button class="btn-icon" onclick="closeModal()" style="font-size:18px">✕</button></div>
+    <div class="modal-body">${bodyHtml}</div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn-primary" id="modalSaveBtn">Salvar</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('modalSaveBtn').onclick=onSave;
+}
+function closeModal(){
+  const m=document.getElementById('modalOverlay');
+  if(m)m.remove();
 }
 
-// Init is handled by login flow
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+checkSession();
 </script>
 </body>
 </html>
