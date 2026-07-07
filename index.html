@@ -841,10 +841,9 @@ async function loadCaixas(){
       const cx=caixasMap[key];
       const val=cx&&cx.valor?moneyShort(cx.valor):'';
       const conf=cx&&cx.conferido;
-      const clickHandler=conf?`onclick="registrarConsumoRoberto(this,'${p.id}','${p.nome}','${dt}')" style="cursor:pointer"`:'';
       return`<td class="cx-cell"><div class="cx-inner">
         <span class="cx-prefix">R$</span>
-        <input class="cx-val${conf?' conferido':''}" data-posto="${p.id}" data-data="${dt}" data-id="${cx?cx.id:''}" data-postonome="${p.nome}" value="${val}" onblur="saveCaixa(this)" onkeydown="if(event.key==='Enter')this.blur()" ${clickHandler}/>
+        <input class="cx-val${conf?' conferido':''}" data-posto="${p.id}" data-data="${dt}" data-id="${cx?cx.id:''}" data-postonome="${p.nome}" value="${val}" onblur="saveCaixa(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
         <div class="cx-check${conf?' checked':''}" onclick="toggleConferido(this)" data-posto="${p.id}" data-data="${dt}">${conf?'✓':''}</div>
       </div></td>`;
     }).join('');
@@ -852,14 +851,24 @@ async function loadCaixas(){
   }).join('');
 }
 
-async function registrarConsumoRoberto(el,postoId,postoNome,data){
-  const rawVal=el.value.replace(/\./g,'').replace(',','.');
-  const valor=parseFloat(rawVal)||0;
-  if(valor<=0)return;
-  if(!confirm(`Registrar consumo de ${money(valor)} no posto ${postoNome} (${fmtDate(data)}) para ROBERTO?`))return;
-  const{error}=await sb.from('transacoes').insert({cliente_id:ROBERTO_ID,posto_id:postoId,valor,descricao:'Caixa '+fmtDate(data)+' - '+postoNome});
-  if(error){toast('Erro ao registrar consumo: '+error.message,'error');return}
-  toast('Consumo de '+money(valor)+' registrado para ROBERTO!');
+// Atualizar totais do dashboard de caixas na tela
+function updateCaixasDashTotals(delta,fromVerde){
+  const verdeEl=document.getElementById('cxTotalVerde');
+  const vermelhoEl=document.getElementById('cxTotalVermelho');
+  if(!verdeEl||!vermelhoEl)return;
+  const parseVal=s=>Number(s.replace('R$','').replace(/\./g,'').replace(',','.').trim())||0;
+  let verde=parseVal(verdeEl.textContent);
+  let vermelho=parseVal(vermelhoEl.textContent);
+  if(fromVerde){
+    // desconferir: sai do verde, vai pro vermelho
+    verde-=delta;vermelho+=delta;
+  }else{
+    // conferir: sai do vermelho, vai pro verde
+    verde+=delta;vermelho-=delta;
+  }
+  if(verde<0)verde=0;if(vermelho<0)vermelho=0;
+  verdeEl.textContent=money(verde);
+  vermelhoEl.textContent=money(vermelho);
 }
 
 async function saveCaixa(el){
@@ -885,10 +894,12 @@ async function toggleConferido(el){
   const data=el.dataset.data;
   const input=el.previousElementSibling;
   const isChecked=el.classList.contains('checked');
+  const postoNome=input.dataset.postonome||'Posto';
+  
+  const rawVal=input.value.replace(/\./g,'').replace(',','.');
+  const valor=parseFloat(rawVal)||0;
   
   if(!input.dataset.id){
-    const rawVal=input.value.replace(/\./g,'').replace(',','.');
-    const valor=parseFloat(rawVal)||0;
     if(valor===0){toast('Insira um valor primeiro','error');return}
     const{data:newRow}=await sb.from('caixas').insert({posto_id,data,valor,conferido:true,conferido_em:new Date().toISOString()}).select().single();
     if(newRow){
@@ -896,6 +907,11 @@ async function toggleConferido(el){
       el.classList.add('checked');
       el.textContent='✓';
       input.classList.add('conferido');
+      updateCaixasDashTotals(valor,false);
+      // Registrar consumo ROBERTO automaticamente
+      sb.from('transacoes').insert({cliente_id:ROBERTO_ID,posto_id,valor,descricao:'Caixa '+fmtDate(data)+' - '+postoNome}).then(({error})=>{
+        if(!error)toast('Consumo '+money(valor)+' registrado para ROBERTO!');
+      });
     }
   }else{
     const newStatus=!isChecked;
@@ -904,10 +920,20 @@ async function toggleConferido(el){
       el.classList.add('checked');
       el.textContent='✓';
       input.classList.add('conferido');
+      updateCaixasDashTotals(valor,false);
+      // Registrar consumo ROBERTO automaticamente
+      sb.from('transacoes').insert({cliente_id:ROBERTO_ID,posto_id,valor,descricao:'Caixa '+fmtDate(data)+' - '+postoNome}).then(({error})=>{
+        if(!error)toast('Consumo '+money(valor)+' registrado para ROBERTO!');
+      });
     }else{
       el.classList.remove('checked');
       el.textContent='';
       input.classList.remove('conferido');
+      updateCaixasDashTotals(valor,true);
+      // Remover consumo ROBERTO ao desconferir
+      sb.from('transacoes').delete().match({cliente_id:ROBERTO_ID,posto_id,valor,descricao:'Caixa '+fmtDate(data)+' - '+postoNome}).then(()=>{
+        toast('Consumo removido','error');
+      });
     }
   }
 }
