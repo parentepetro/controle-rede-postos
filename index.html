@@ -635,7 +635,12 @@ async function loadConsumo(){
     consumoPorPostoEl.innerHTML='<h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:12px">Consumo ROBERTO por Posto</h3><div class="grid-2" style="margin-bottom:16px">'+postoIds.map(pid=>{
       const pos=postosCache.find(p=>p.id===pid);
       const info=porPosto[pid];
-      const itemsHtml=info.items.slice(0,5).map(t=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px"><span style="color:#6b7280">${fmtDate(t.created_at?.slice(0,10))}</span><span style="font-weight:600;color:#dc2626">${money(t.valor)}</span></div>`).join('');
+      const itemsHtml=info.items.slice(0,5).map(t=>{
+        // Extrair data do caixa da descrição (formato: "Caixa dd/mm/yyyy - POSTO")
+        const dtMatch=t.descricao?.match(/(\d{2}\/\d{2}\/\d{4})/);
+        const dtLabel=dtMatch?dtMatch[1]:fmtDate(t.created_at?.slice(0,10));
+        return`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px"><span style="color:#6b7280">${dtLabel}</span><span style="font-weight:600;color:#dc2626">${money(t.valor)}</span></div>`;
+      }).join('');
       const moreHtml=info.items.length>5?`<div style="font-size:11px;color:#9ca3af;padding-top:4px">+${info.items.length-5} mais...</div>`:'';
       return`<div class="card" style="padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font-weight:700;font-size:13px;color:#1e293b">${pos?pos.nome:'Posto'}</span><span style="font-weight:800;font-size:15px;color:#dc2626">${money(info.total)}</span></div><div style="font-size:11px;color:#6b7280;margin-bottom:6px">${info.items.length} registro(s)</div>${itemsHtml}${moreHtml}</div>`;
     }).join('')+'</div>';
@@ -648,7 +653,10 @@ async function loadConsumo(){
   tbody.innerHTML=allData.map(t=>{
     const cli=clientesCache.find(c=>c.id===t.cliente_id);
     const pos=postosCache.find(p=>p.id===t.posto_id);
-    return`<tr><td>${fmtDate(t.created_at?.slice(0,10))}</td><td>${cli?cli.nome:'-'}</td><td>${pos?pos.nome:'-'}</td><td style="font-weight:600;color:#dc2626">${money(t.valor)}</td><td>${t.descricao||'-'}</td><td><button class="btn-icon" onclick="deleteConsumo('${t.id}')">🗑️</button></td></tr>`;
+    // Extrair data do caixa da descrição
+    const dtMatch2=t.descricao?.match(/(\d{2}\/\d{2}\/\d{4})/);
+    const dtLabel2=dtMatch2?dtMatch2[1]:fmtDate(t.created_at?.slice(0,10));
+    return`<tr><td>${dtLabel2}</td><td>${cli?cli.nome:'-'}</td><td>${pos?pos.nome:'-'}</td><td style="font-weight:600;color:#dc2626">${money(t.valor)}</td><td>${t.descricao||'-'}</td><td><button class="btn-icon" onclick="deleteConsumo('${t.id}')">🗑️</button></td></tr>`;
   }).join('')||'<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">Nenhum consumo registrado</td></tr>';
 }
 function openConsumoModal(){
