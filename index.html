@@ -249,7 +249,19 @@ tr:hover td{background:#f9fafb}
     <!-- CAIXAS -->
     <div id="page-caixas" class="page">
       <h2 style="font-size:20px;font-weight:700;color:#1e293b;margin-bottom:16px">Caixas</h2>
-      <div class="card" style="padding:12px;overflow:auto;max-height:calc(100vh - 160px)">
+      <div class="grid-2 mb-4" id="caixasDash">
+        <div class="card" style="padding:20px;border-left:4px solid #16a34a">
+          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase">Total Conferidos (Verde)</div>
+          <div id="cxTotalVerde" style="font-size:24px;font-weight:800;color:#16a34a;margin-top:6px">R$ 0,00</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px">Clique em um valor verde para registrar consumo</div>
+        </div>
+        <div class="card" style="padding:20px;border-left:4px solid #dc2626">
+          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase">Total Pendentes (Vermelho)</div>
+          <div id="cxTotalVermelho" style="font-size:24px;font-weight:800;color:#dc2626;margin-top:6px">R$ 0,00</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px">Valores ainda n&atilde;o conferidos</div>
+        </div>
+      </div>
+      <div class="card" style="padding:12px;overflow:auto;max-height:calc(100vh - 260px)">
         <table class="cx-table" id="tblCaixas"><thead></thead><tbody></tbody></table>
       </div>
     </div>
@@ -741,12 +753,15 @@ async function cancelarRepasse(id){
 // ═══════════════════════════════════════════════════
 // CAIXAS
 // ═══════════════════════════════════════════════════
+const ROBERTO_ID='a3ab2379-893e-47d8-8fa0-929372c8d1e0';
+
 async function loadCaixas(){
   await loadPostosCache();
+  await loadClientesCache();
   const activePostos=postosCache.filter(p=>p.ativo).sort((a,b)=>a.nome.localeCompare(b.nome));
   
-  // Gerar datas de hoje até 29/06/2026
-  const startDate=new Date('2026-06-29');
+  // Gerar datas de hoje até 25/06/2026
+  const startDate=new Date('2026-06-25');
   const endDate=new Date();
   const dates=[];
   for(let d=new Date(endDate);d>=startDate;d.setDate(d.getDate()-1)){
@@ -758,6 +773,17 @@ async function loadCaixas(){
   const{data:caixasData}=await sb.from('caixas').select('*');
   const caixasMap={};
   (caixasData||[]).forEach(c=>{caixasMap[c.posto_id+'_'+c.data]=c});
+
+  // Calcular totais para dashboard
+  let totalVerde=0,totalVermelho=0;
+  (caixasData||[]).forEach(c=>{
+    if(c.valor&&c.valor>0){
+      if(c.conferido)totalVerde+=Number(c.valor);
+      else totalVermelho+=Number(c.valor);
+    }
+  });
+  document.getElementById('cxTotalVerde').textContent=money(totalVerde);
+  document.getElementById('cxTotalVermelho').textContent=money(totalVermelho);
 
   const tdy=todayStr();
   const thead=document.querySelector('#tblCaixas thead');
@@ -772,14 +798,25 @@ async function loadCaixas(){
       const cx=caixasMap[key];
       const val=cx&&cx.valor?moneyShort(cx.valor):'';
       const conf=cx&&cx.conferido;
+      const clickHandler=conf?`onclick="registrarConsumoRoberto(this,'${p.id}','${p.nome}','${dt}')" style="cursor:pointer"`:'';
       return`<td class="cx-cell"><div class="cx-inner">
         <span class="cx-prefix">R$</span>
-        <input class="cx-val${conf?' conferido':''}" data-posto="${p.id}" data-data="${dt}" data-id="${cx?cx.id:''}" value="${val}" onblur="saveCaixa(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
+        <input class="cx-val${conf?' conferido':''}" data-posto="${p.id}" data-data="${dt}" data-id="${cx?cx.id:''}" data-postonome="${p.nome}" value="${val}" onblur="saveCaixa(this)" onkeydown="if(event.key==='Enter')this.blur()" ${clickHandler}/>
         <div class="cx-check${conf?' checked':''}" onclick="toggleConferido(this)" data-posto="${p.id}" data-data="${dt}">${conf?'✓':''}</div>
       </div></td>`;
     }).join('');
     return`<tr><td class="${dateClass}">${fmtDate(dt)}</td>${cells}</tr>`;
   }).join('');
+}
+
+async function registrarConsumoRoberto(el,postoId,postoNome,data){
+  const rawVal=el.value.replace(/\./g,'').replace(',','.');
+  const valor=parseFloat(rawVal)||0;
+  if(valor<=0)return;
+  if(!confirm(`Registrar consumo de ${money(valor)} no posto ${postoNome} (${fmtDate(data)}) para ROBERTO?`))return;
+  const{error}=await sb.from('transacoes').insert({cliente_id:ROBERTO_ID,posto_id:postoId,valor,descricao:'Caixa '+fmtDate(data)+' - '+postoNome});
+  if(error){toast('Erro ao registrar consumo: '+error.message,'error');return}
+  toast('Consumo de '+money(valor)+' registrado para ROBERTO!');
 }
 
 async function saveCaixa(el){
