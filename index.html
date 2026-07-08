@@ -221,12 +221,32 @@ tr:hover td{background:#f9fafb}
     <div id="page-consumo" class="page">
       <div class="flex items-center justify-between mb-4">
         <h2 style="font-size:20px;font-weight:700;color:#1e293b">Consumo</h2>
-        <button class="btn-primary" onclick="openConsumoModal()">+ Registrar Consumo</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" onclick="openConsumoModal()">+ Registrar Consumo</button>
+          <button class="btn-primary" style="background:#16a34a" onclick="openDescontoModal()">- Aplicar Desconto</button>
+        </div>
       </div>
-      <div class="card mb-4" style="padding:20px;border-left:4px solid #2563eb">
-        <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase">Total Consumo (ROBERTO)</div>
-        <div id="consumoTotalRoberto" style="font-size:28px;font-weight:800;color:#2563eb;margin-top:6px">R$ 0,00</div>
-        <div style="font-size:11px;color:#9ca3af;margin-top:4px">Soma de todos os valores repassados via Caixas</div>
+      <div class="grid-3 mb-4">
+        <div class="card" style="padding:20px;border-left:4px solid #2563eb">
+          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase">Total Consumo (Bruto)</div>
+          <div id="consumoTotalRoberto" style="font-size:24px;font-weight:800;color:#2563eb;margin-top:6px">R$ 0,00</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px">Soma dos caixas conferidos</div>
+        </div>
+        <div class="card" style="padding:20px;border-left:4px solid #16a34a">
+          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase">Total Descontos</div>
+          <div id="consumoTotalDescontos" style="font-size:24px;font-weight:800;color:#16a34a;margin-top:6px">R$ 0,00</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px">Arredondamentos aplicados</div>
+        </div>
+        <div class="card" style="padding:20px;border-left:4px solid #dc2626">
+          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase">Saldo Líquido</div>
+          <div id="consumoSaldoLiquido" style="font-size:24px;font-weight:800;color:#dc2626;margin-top:6px">R$ 0,00</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px">Consumo - Descontos</div>
+        </div>
+      </div>
+      <!-- Tabela de descontos -->
+      <div id="descontosSection" class="card mb-4" style="padding:16px;display:none">
+        <h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:12px">Descontos Aplicados</h3>
+        <table id="tblDescontos"><thead><tr><th>Data</th><th>Valor</th><th>Descrição</th><th>Ações</th></tr></thead><tbody></tbody></table>
       </div>
       <div id="consumoPorPosto"></div>
       <div class="card overflow-x mt-4">
@@ -610,10 +630,30 @@ async function loadConsumo(){
   const{data}=await sb.from('transacoes').select('*').order('created_at',{ascending:false});
   const allData=data||[];
   
+  // Carregar descontos
+  const{data:descontosData}=await sb.from('descontos').select('*').order('created_at',{ascending:false});
+  const descontos=descontosData||[];
+  const totalDescontos=descontos.reduce((s,d)=>s+(Number(d.valor)||0),0);
+  
   // Filtrar consumos do ROBERTO
   const robertoData=allData.filter(t=>t.cliente_id===ROBERTO_ID);
   const totalRoberto=robertoData.reduce((s,t)=>s+(Number(t.valor)||0),0);
+  const saldoLiquido=totalRoberto-totalDescontos;
   document.getElementById('consumoTotalRoberto').textContent=money(totalRoberto);
+  document.getElementById('consumoTotalDescontos').textContent=money(totalDescontos);
+  document.getElementById('consumoSaldoLiquido').textContent=money(saldoLiquido);
+  
+  // Tabela de descontos
+  const descontosSection=document.getElementById('descontosSection');
+  if(descontos.length>0){
+    descontosSection.style.display='block';
+    const tbodyDesc=document.querySelector('#tblDescontos tbody');
+    tbodyDesc.innerHTML=descontos.map(d=>{
+      return`<tr><td>${fmtDate(d.created_at?.slice(0,10))}</td><td style="font-weight:600;color:#16a34a">${money(d.valor)}</td><td>${d.descricao||'-'}</td><td><button class="btn-icon" onclick="deleteDesconto('${d.id}')">🗑️</button></td></tr>`;
+    }).join('');
+  }else{
+    descontosSection.style.display='none';
+  }
   
   // Agrupar por posto
   const porPosto={};
@@ -683,6 +723,25 @@ async function deleteConsumo(id){
   if(!confirm('Excluir este consumo?'))return;
   await sb.from('transacoes').delete().eq('id',id);
   toast('Consumo excluído!');loadConsumo();
+}
+function openDescontoModal(){
+  showModal('Aplicar Desconto',`
+    <div style="margin-bottom:12px"><label class="label">Valor do Desconto (R$) *</label><input class="input" id="mdDescValor" placeholder="0,00"/></div>
+    <div><label class="label">Descrição (ex: arredondamento)</label><input class="input" id="mdDescObs" placeholder="Arredondamento"/></div>
+  `,async()=>{
+    const valorStr=document.getElementById('mdDescValor').value.replace(/\./g,'').replace(',','.');
+    const valor=parseFloat(valorStr);
+    if(!valor||valor<=0){toast('Informe um valor válido','error');return}
+    const descricao=document.getElementById('mdDescObs').value.trim()||'Arredondamento';
+    const{error}=await sb.from('descontos').insert({valor,descricao});
+    if(error){toast('Erro ao aplicar desconto: '+error.message,'error');return}
+    closeModal();toast('Desconto de '+money(valor)+' aplicado!');loadConsumo();
+  });
+}
+async function deleteDesconto(id){
+  if(!confirm('Excluir este desconto?'))return;
+  await sb.from('descontos').delete().eq('id',id);
+  toast('Desconto excluído!');loadConsumo();
 }
 
 // ═══════════════════════════════════════════════════
