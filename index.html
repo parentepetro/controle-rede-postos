@@ -213,7 +213,7 @@ tr:hover td{background:#f9fafb}
         <button class="btn-primary" onclick="openCreditoModal()">+ Novo Crédito</button>
       </div>
       <div class="card overflow-x">
-        <table id="tblCreditos"><thead><tr><th>Data</th><th>Cliente</th><th>Valor Total</th><th>Distribuição</th><th>Observação</th></tr></thead><tbody></tbody></table>
+        <table id="tblCreditos"><thead><tr><th>Data</th><th>Cliente</th><th>Valor Total</th><th>Distribuição</th><th>Observação</th><th>Ações</th></tr></thead><tbody></tbody></table>
       </div>
     </div>
 
@@ -593,8 +593,8 @@ async function loadCreditos(){
       const p=postosCache.find(pp=>pp.id===x.posto_id);
       return`${p?p.nome:'?'}: ${money(x.valor)}`;
     }).join(', ');
-    return`<tr><td>${fmtDate(c.created_at?.slice(0,10))}</td><td>${cli?cli.nome:'-'}</td><td style="font-weight:600;color:#16a34a">${money(c.valor_total)}</td><td style="font-size:11px">${dist||'-'}</td><td>${c.observacao||'-'}</td></tr>`;
-  }).join('')||'<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Nenhum crédito registrado</td></tr>';
+    return`<tr><td>${fmtDate(c.created_at?.slice(0,10))}</td><td>${cli?cli.nome:'-'}</td><td style="font-weight:600;color:#16a34a">${money(c.valor_total)}</td><td style="font-size:11px">${dist||'-'}</td><td>${c.observacao||'-'}</td><td><button class="btn-icon" onclick="editCredito('${c.id}')">✏️</button> <button class="btn-icon" onclick="deleteCredito('${c.id}')">🗑️</button></td></tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">Nenhum crédito registrado</td></tr>';
 }
 function openCreditoModal(){
   const postosOpts=postosCache.filter(p=>p.ativo).map(p=>`<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:13px"><input type="checkbox" class="ckPosto" value="${p.id}" checked/>${p.nome}</label>`).join('');
@@ -619,6 +619,49 @@ function openCreditoModal(){
     await sb.from('credito_postos').insert(rows);
     closeModal();toast('Crédito registrado!');loadCreditos();
   });
+}
+async function editCredito(id){
+  await loadPostosCache();
+  await loadClientesCache();
+  const{data:cred}=await sb.from('creditos').select('*').eq('id',id).single();
+  if(!cred)return;
+  const{data:cp}=await sb.from('credito_postos').select('*').eq('credito_id',id);
+  const postosDoCredito=(cp||[]).map(x=>x.posto_id);
+  const postosOpts=postosCache.filter(p=>p.ativo).map(p=>{
+    const checked=postosDoCredito.includes(p.id)?'checked':'';
+    return`<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:13px"><input type="checkbox" class="ckPosto" value="${p.id}" ${checked}/>${p.nome}</label>`;
+  }).join('');
+  const clienteOpts=clientesCache.filter(c=>c.ativo).map(c=>`<option value="${c.id}" ${c.id===cred.cliente_id?'selected':''}>${c.nome}</option>`).join('');
+  const valorFmt=Number(cred.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  showModal('Editar Crédito',`
+    <div style="margin-bottom:12px"><label class="label">Cliente *</label><select class="input" id="mdCredCliente"><option value="">Selecione...</option>${clienteOpts}</select></div>
+    <div style="margin-bottom:12px"><label class="label">Valor Total (R$) *</label><input class="input" id="mdCredValor" value="${valorFmt}" placeholder="0,00"/></div>
+    <div style="margin-bottom:12px"><label class="label">Observação</label><input class="input" id="mdCredObs" value="${cred.observacao||''}"/></div>
+    <div><label class="label">Distribuir entre os postos:</label><div style="max-height:150px;overflow-y:auto;padding:8px;border:1px solid #e5e7eb;border-radius:8px">${postosOpts}</div></div>
+  `,async()=>{
+    const cliente_id=document.getElementById('mdCredCliente').value;
+    const valorStr=document.getElementById('mdCredValor').value.replace(/\./g,'').replace(',','.');
+    const valor_total=parseFloat(valorStr);
+    if(!cliente_id||!valor_total||valor_total<=0){toast('Preencha cliente e valor','error');return}
+    const obs=document.getElementById('mdCredObs').value.trim()||null;
+    const checked=[...document.querySelectorAll('.ckPosto:checked')].map(c=>c.value);
+    if(checked.length===0){toast('Selecione ao menos um posto','error');return}
+    const valorPorPosto=Math.round((valor_total/checked.length)*100)/100;
+    // Atualizar crédito
+    const{error}=await sb.from('creditos').update({cliente_id,valor_total,observacao:obs}).eq('id',id);
+    if(error){toast('Erro ao atualizar crédito','error');return}
+    // Remover distribuição antiga e inserir nova
+    await sb.from('credito_postos').delete().eq('credito_id',id);
+    const rows=checked.map(posto_id=>({credito_id:id,posto_id,valor:valorPorPosto}));
+    await sb.from('credito_postos').insert(rows);
+    closeModal();toast('Crédito atualizado!');loadCreditos();
+  });
+}
+async function deleteCredito(id){
+  if(!confirm('Excluir este crédito? Isso também removerá a distribuição entre postos.'))return;
+  await sb.from('credito_postos').delete().eq('credito_id',id);
+  await sb.from('creditos').delete().eq('id',id);
+  toast('Crédito excluído!');loadCreditos();
 }
 
 // ═══════════════════════════════════════════════════
